@@ -1,0 +1,85 @@
+:root {
+  --text: #6b6375;
+  --text-h: #08060d;
+  --bg: #fff;
+  --border: #e5e4e7;
+  --code-bg: #f4f3ec;
+  --accent: #aa3bff;
+  --accent-bg: rgba(170, 59, 255, 0.1);
+  --accent-border: rgba(170, 59, 255, 0.5);
+
+  --status-not_applied: #6b6375;
+  --status-not_applied-bg: rgba(107, 99, 117, 0.1);
+  --status-applied: #2563eb;
+  --status-applied-bg: rgba(37, 99, 235, 0.1);
+  --status-interviewing: #b45309;
+  --status-interviewing-bg: rgba(180, 83, 9, 0.12);
+  --status-offer: #15803d;
+  --status-offer-bg: rgba(21, 128, 61, 0.12);
+  --status-rejected: #b91c1c;
+  --status-rejected-bg: rgba(185, 28, 28, 0.1);
+
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 17px/155% var(--sans);
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #9ca3af;
+    --text-h: #f3f4f6;
+    --bg: #16171d;
+    --border: #2e303a;
+    --code-bg: #1f2028;
+    --accent: #c084fc;
+    --accent-bg: rgba(192, 132, 252, 0.15);
+    --accent-border: rgba(192, 132, 252, 0.5);
+
+    --status-not_applied: #9ca3af;
+    --status-not_applied-bg: rgba(156, 163, 175, 0.15);
+    --status-applied: #60a5fa;
+    --status-applied-bg: rgba(96, 165, 250, 0.15);
+    --status-interviewing: #fbbf24;
+    --status-interviewing-bg: rgba(251, 191, 36, 0.15);
+    --status-offer: #4ade80;
+    --status-offer-bg: rgba(74, 222, 128, 0.15);
+    --status-rejected: #f87171;
+    --status-rejected-bg: rgba(248, 113, 113, 0.15);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--heading);
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+a {
+  color: var(--accent);
+}
+
+code {
+  font-family: var(--mono);
+  background: var(--code-bg);
+  border-radius: 4px;
+  padding: 2px 5px;
+}

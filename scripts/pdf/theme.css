@@ -1,0 +1,56 @@
+body {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 11pt;
+  line-height: 1.45;
+  color: #1a1a1a;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+h1 {
+  font-size: 22pt;
+  margin: 0 0 4pt;
+  letter-spacing: 0.3pt;
+}
+
+h2 {
+  font-size: 13pt;
+  border-bottom: 1pt solid #999;
+  padding-bottom: 2pt;
+  margin: 16pt 0 6pt;
+  text-transform: uppercase;
+  letter-spacing: 0.5pt;
+}
+
+h3 {
+  font-size: 12pt;
+  margin: 12pt 0 1pt;
+}
+
+p {
+  margin: 0 0 8pt;
+}
+
+ul {
+  margin: 2pt 0 10pt;
+  padding-left: 18pt;
+}
+
+li {
+  margin-bottom: 3pt;
+}
+
+a {
+  color: #1a1a1a;
+  text-decoration: none;
+}
+
+strong {
+  font-weight: 700;
+}
+
+@page {
+  size: Letter;
+  margin: 0.6in 0.75in;
+}
