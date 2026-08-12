@@ -1,4 +1,4 @@
-# Resume Targeter
+# Targeted Resumes
 
 A personal tool for tailoring my resume and cover letter to individual job postings, without inventing experience I don't have — and keeping every version organized in one place.
 

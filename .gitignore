@@ -27,3 +27,6 @@ dist-ssr
 public/original-resume.md
 public/applications/
 public/applications-manifest.json
+
+# Working build log — job-search specifics, not documentation for forks
+tasks/todo.md

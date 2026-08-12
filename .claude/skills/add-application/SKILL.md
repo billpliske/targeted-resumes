@@ -1,6 +1,6 @@
 ---
 name: add-application
-description: Tailor Bill's resume and cover letter to a specific job posting and add it to the resume-targeter dashboard. Trigger on requests like "tailor my resume for this job", "add a new application", "target my resume to this posting", or when the user shares a job listing URL or pasted job description in this repo.
+description: Tailor Bill's resume and cover letter to a specific job posting and add it to the targeted-resumes dashboard. Trigger on requests like "tailor my resume for this job", "add a new application", "target my resume to this posting", or when the user shares a job listing URL or pasted job description in this repo.
 ---
 
 Produces a tailored resume and cover letter (markdown + PDF) in a new folder under `public/applications/`, then rebuilds the manifest.
