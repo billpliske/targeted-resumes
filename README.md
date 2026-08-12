@@ -1,75 +1,48 @@
-# React + TypeScript + Vite
+# Resume Targeter
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A personal tool for tailoring my resume and cover letter to individual job postings, without inventing experience I don't have — and keeping every version organized in one place.
 
-Currently, two official plugins are available:
+## How it works
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+There's no backend and no LLM API key. Generation happens through a Claude Code chat using this repo's `add-application` skill; the React app itself is a static, read-only dashboard that displays whatever's already been generated and saved to disk.
 
 ```
+Paste a job posting  →  Claude tailors resume + cover letter  →  Dashboard shows it
+   (in the app)          (in a Claude Code chat, via the           (browse, compare,
+                          add-application skill)                    download PDFs)
+```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Using it
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. **Add a job posting.** Run `npm run dev` and open the app. Paste the full job posting text into the "Add a new application" box (the URL is optional — it's just saved as a reference link, since many job boards render their content via JavaScript and won't fetch cleanly). Click "Copy prompt for Claude."
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+2. **Hand it to Claude Code.** Paste the copied prompt into a Claude Code chat in this repo. It fetches/reads the posting, extracts key requirements, and uses the `writer` subagent to tailor `public/original-resume.md` into a resume and a standalone cover letter — rewording and re-emphasizing real experience to match the posting, never inventing skills or accomplishments. Genuine gaps get flagged, not papered over. It then generates PDFs and updates the dashboard.
+
+3. **Review it.** Refresh the dashboard, click into the new application, and go through the tabs: Job Posting, Keyword Targeting (a before/after compare showing which terms from the posting actually got reinforced, and by how much), Resume, Cover Letter. Always review before using anything — nothing here should go out unreviewed.
+
+4. **Apply.** Grab the PDFs — either the "Download PDF" links in the dashboard, or straight from `public/applications/<date>-<company>-<role>/` in Finder (named "Bill Pliske Resume.pdf" / "Bill Pliske Cover Letter.pdf", ready to upload as-is).
+
+5. **Track it.** Update the application's status from the dropdown (Not Applied → Applied → Interviewing → Offer/Rejected) as things move. The home screen shows running counts per status, with click-to-filter.
+
+## Where things live
 
 ```
+public/
+  original-resume.md              canonical source resume (never edited by the skill)
+  applications/
+    2026-08-12-acme-corp-role/
+      job-posting.md
+      resume.md              cover-letter.md
+      Bill Pliske Resume.pdf     Bill Pliske Cover Letter.pdf
+      meta.json                   company, role, status, keywords, etc.
+  applications-manifest.json      generated index the dashboard reads (npm run manifest)
+```
+
+`public/original-resume.md`, `public/applications/`, and the manifest are gitignored — this repo can be pushed without pushing personal contact info or application history.
+
+## Development
+
+- `npm run dev` — start the dashboard (also runs the local `/api/status` and `/api/delete` endpoints the dashboard uses for one-click status edits and deletions — dev-only, no external calls, no secrets)
+- `npm run lint` — ESLint
+- `npm run manifest` — rebuild `public/applications-manifest.json` from each application's `meta.json` (the `add-application` skill does this automatically)
+- `node scripts/generate-pdf.mjs <input.md> <output.pdf>` — render a markdown file to a styled PDF
