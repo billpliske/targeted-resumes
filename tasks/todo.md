@@ -113,3 +113,102 @@ Three related changes:
 Also saved a memory (`name_spelling_pliske`) noting that voice-dictated messages sometimes transcribe "Pliske" as "Pliskey" — always use the correct spelling regardless of how a dictated message renders it.
 
 Verified: `tsc -b` and `npm run lint` pass clean (had to fix an `any` type flagged by the linter in the new shared API helper). Tested the delete flow safely by creating a throwaway duplicate application, deleting it via direct API call (curl) rather than automating the native `confirm()` dialog through the browser, confirming the folder was removed and the manifest correctly dropped back to the 2 real applications. Confirmed the renamed PDF is served correctly at its space-containing filename. Checked the icon buttons and detail-header delete button live in Chrome.
+
+## Round 8 — fit rating, Personal Projects, and a fast triage path for reapplying
+
+Bill explained the real driver behind wanting a fit assessment: he's already applied to ~90 jobs outside this tool and heard back from only ~10, and wants to selectively reapply to the strongest-fit ones from that backlog rather than blanket-reapplying to all ~80 unanswered. That reframed several decisions below.
+
+**Fit rating.** Added `fitRating` (`strong`/`good`/`partial`/`stretch` — a qualitative scale rather than a fake-precise number) and `fitSummary` (2-3 sentences) to the `Application` type and `meta.json` schema. New `FitBadge` component, color-coded via the existing status color tokens (green/blue/amber/red). Shown as a badge next to the role in the list and prominently in the detail header with the full summary. Backfilled both existing applications from the fit analysis already produced during their original tailoring (Fleetio: partial — real B2B SaaS/mentoring overlap but missing Next.js/Tailwind/headless CMS/SEO/GA; GC AI: strong — a genuine hybrid design-engineering match). `add-application` skill updated with a new step 7 that generates this for every future application.
+
+**Personal Projects section.** Bill shared two more repos (`social-videos`, `billpliske-portfolio`) and asked whether/how to reference personal-project work on the resume. Investigated both properly rather than trusting surface impressions:
+- A screenshot of a custom admin analytics dashboard initially looked like it might be self-built rather than real Google Analytics — cloned `billpliske-portfolio` and read `docs/ANALYTICS_SETUP.md` plus the actual Lambda/GraphQL/store code, which confirmed genuine GA4 integration (tracking script + a secure server-side path to the Google Analytics Data API via AWS Lambda + Secrets Manager + GraphQL), e-commerce conversion-funnel event tracking, and a campaign-attribution report blending GA4 data with the site's own cart/conversion data. No committed credentials found.
+- Cloned `social-videos` again at file-content level (not just README) and found genuine hand-authored animation code (Remotion's `interpolate()` across five templates) and real AI-tool integration (ElevenLabs for AI voice narration, Whisper for auto-transcribed captions) — closing the "UI animations" gap flagged earlier for the GC AI application.
+- Had the `writer` subagent draft a new "Personal Projects" section appended to `public/original-resume.md` (two entries, 4-5 bullets each, matching the existing document's formatting exactly). Fixed one structural issue the agent flagged itself: it had used two consecutive `##` headings ("Personal Projects" then the project name); changed the project names to bold inline text under a single section heading instead. No fabricated metrics or invented facts — every bullet traces to something read directly in the code or docs. No project URLs included since Bill hasn't confirmed the live links yet.
+- Existing applications (Fleetio, GC AI) still need to be re-tailored against the updated source to actually pick up this new content — not yet done as of this round.
+
+**Fast triage path for the reapply backlog.** Built a parallel lightweight flow so Bill can screen many old postings without paying for full tailoring on each one:
+- New `.claude/skills/check-fit/SKILL.md` — takes a posting, writes just `job-posting.md` + `meta.json` (fit rating/summary, keywords, no resume/cover letter/PDFs), reports back tersely (built for repeated back-to-back use across many postings, not a full explanation each time).
+- Added a `tailored: boolean` field; `resumeFile`/`resumePdf`/`coverLetterFile`/`coverLetterPdf` are now optional in the `Application` type to support screening-only entries. Backfilled both existing applications with `tailored: true`.
+- `add-application` SKILL.md gained a "Promoting a screened application" section: fully tailoring a previously-screened entry reuses its existing folder/id rather than creating a new one.
+- `ApplicationDetail.tsx` gates the Keyword Targeting/Resume/Cover Letter tabs behind `application.tailored`, showing a "Screened only" hint with the exact phrase to use ("fully tailor the `<company>` application") instead of infinite loading states.
+- `ApplicationList.tsx` shows a dashed "Screened only" badge next to screening-only entries, and gained a sort control (Date added / Fit rating, via a new `FIT_RATING_ORDER` map) alongside the existing search.
+- `AddApplication.tsx` now has two submit buttons — "Check fit only" and "Copy prompt for Claude" — building a prompt for whichever skill, so the triage workflow is drivable straight from the dashboard.
+
+Verified: `tsc -b` and `npm run lint` pass clean throughout. Tested the screened-only UI path end-to-end with a throwaway entry (created directly via files + manifest rebuild, confirmed the detail view correctly shows only the Job Posting tab and the right promotion hint text, deleted via the existing `/api/delete` endpoint afterward). Confirmed fit badges and the new "Check fit only" button render correctly live in Chrome.
+
+**Still open:** re-tailor Fleetio and GC AI now that the source resume has the Personal Projects section, so their keyword compare views and fit ratings reflect it (Fleetio in particular should finally show real movement on Google Analytics). Bill is about to start working through his ~80-job reapply backlog using `check-fit`.
+
+## Round 9 — intake box confusion, then simplified to screen-only
+
+Bill expected the dashboard's purple button to trigger processing automatically rather than just copying a prompt to the clipboard. Explained the hard constraint honestly: a static page with no backend can't call an AI model without embedding a secret API key in browser JS, which was explicitly ruled out earlier — there's no version of "click and it just happens" that doesn't reintroduce that risk. Pointed out that for bulk-processing his ~80-job backlog, pasting straight into a Claude Code chat (skipping the dashboard entirely) is actually faster than the copy/switch-window/paste round-trip — he just needs to include the URL alongside the pasted text, which I parse out same as the box does.
+
+Also discussed, but explicitly deferred rather than built: a cron-scheduled background Claude Code session that polls a locally-written queue file (same no-API-key pattern as the status/delete endpoints) so the button could trigger processing without a manual chat paste. Real tradeoffs (polling delay, added complexity, a background session needs somewhere to report results) meant it wasn't worth building mid-flight; if useful later, auto-**screening** is the better candidate for that treatment than auto-tailoring, since it's cheap and doesn't need a deliberate "yes, pursue this one" moment the way full tailoring does.
+
+Bill's actual ask that came out of this: the two-button box (`check-fit` vs `add-application`) wasn't earning its complexity, since he'd rather do full tailoring by talking to Claude directly anyway. Simplified `AddApplication.tsx` to a single-purpose "Screen a job posting" form — one button, always builds a `check-fit` prompt. Full tailoring is chat-only now, no dashboard shortcut for it.
+
+Also ran a real end-to-end application through the pipeline: Ancestry — Lead Product Designer (fully tailored, not just screened, since Bill confirmed intent to apply). Rated "good" — genuine substantive overlap (Gannett's design-guideline/pattern-library work maps directly to the posting's "define core interaction patterns and reusable components" ask, plus real mentoring and cross-functional-alignment history), but the `writer` subagent flagged an important, specific gap worth relaying: this posting lists a design portfolio as a **core requirement**, not a bonus, and there's no portfolio anywhere in Bill's background material — the single biggest risk to this application, more than any skill-keyword gap.
+
+Verified: `tsc -b` and `npm run lint` pass clean; simplified intake box and the new Ancestry entry (with its "Good match" badge) both checked live in Chrome.
+
+**Still open:** same as before (re-tailor Fleetio/GC AI against the Personal Projects section) — Bill hasn't done this yet, and the Ancestry portfolio gap is worth a direct conversation with him about whether to build one before applying.
+
+## Round 10 — process fixes so future applications tailor better automatically
+
+Started as cleanup on specific applications, surfaced two systemic problems worth fixing at the skill level so every future `add-application`/`check-fit` run benefits, not just this round's four.
+
+**1. Keyword-targeting only does literal substring matching, not concept matching.** `KeywordCompare.tsx` counts exact phrases, case-insensitive — "prototypes"/"prototyped" doesn't count toward a "prototyping" keyword, "design-system ownership" doesn't count toward "design systems." Several tailored resumes had real, true experience that just wasn't worded to match, so the dashboard showed false 0→0s and made the tailoring look thinner than it was. Bill's expectation (correctly) is that tailoring should reword to hit the posting's exact phrasing whenever the underlying claim is genuinely true — that was always the intent, just not executed precisely. Fixed:
+- `.claude/skills/add-application/SKILL.md` step 5 now explicitly instructs: reuse a keyword's exact phrase (grammatically adapted) whenever it's true, never force it when it isn't, and never leave `[NEEDS INPUT: ...]` gap-notes in the actual file body (a bug caught this round — they'd render straight into the PDF).
+- Reworded **Ancestry** and **Kong** resumes to close the wording gap (6 of 8 keywords went from 0→0 to genuinely matching on both; the remaining zeros are real gaps, left alone rather than forced).
+
+**2. No verified skills/tools inventory anywhere.** `original-resume.md` is narrative-only — no Skills section — so tool-specific keywords (Figma, Storybook, design tokens) had nowhere to surface even when true. Bill flagged he uses Storybook at Acronis; it had been wrongly disclosed as a gap on Kong's application until caught. Root-cause fix: new `public/personal-projects-skills.md`, a checklist dissected directly from reading code/`package.json` in Bill's two **public** GitHub repos (`billpliske-portfolio`, `social-videos` — specifically the ones he links from applications, not his local disk in general, which can differ from what's public) plus tools confirmed real by Bill but not in those repos (Storybook). Explicitly lists genuine gaps too (Figma-to-code/CodeConnect, Framer, formal test suite, formal accessibility audit) so future tailoring doesn't have to guess or re-ask every time. Wired into both `add-application` and `check-fit` skill instructions as a required read alongside `original-resume.md`.
+
+**Applied the fixes to all four live applications** (checked each against the new skills file rather than assuming a blanket redo was needed):
+- **Kong** — promoted from screened-only (files existed on disk but `meta.json` was never flipped to `tailored: true` — fixed). Reworded resume/cover letter for literal keyword matches, added the real Storybook experience, corrected the cover letter's now-inaccurate "I don't have Storybook" disclosure.
+- **Consertus** — promoted from screened-only to fully tailored (rated "good," not "strong" — the `meta.json` fit summary in place before promotion turned out to be a stale copy-paste of GC AI's text). No changes needed post-skills-file since its one real gap (Figma) was already honestly disclosed.
+- **GC AI** — re-tailored to pick up the Personal Projects section it was missing (added after this application was first created). Then, checked against the new skills file and caught a real error: the fit summary said accessibility was "neither a hard requirement," but the posting lists it under Required, not Nice to have — corrected, and added a true, modest accessibility bullet (ARIA-labeled markup, verified in the e-commerce site's actual code) rather than leaving the gap disclosure overly bleak.
+- **Ancestry** — reworded for literal keyword matches (prototyping, design systems, interaction design, cross-functional collaboration). No skills-file-related changes needed.
+
+**Also fixed, unrelated:** links inside rendered job-posting/resume/cover-letter markdown (e.g. the "Source: `<url>`" line) now open in a new tab — `MarkdownView.tsx` didn't set `target="_blank"` on markdown-rendered links before.
+
+**Found, not fixed:** the **Fleetio** application (resume, cover letter, PDFs, `meta.json`) is gone from disk entirely — not touched this session, no trace in `public/applications/`, no git history since that folder is gitignored, nothing in Trash. Manifest now correctly shows 4 applications instead of 5. Bill needs to say whether to re-run it from scratch or if he has another copy somewhere.
+
+Verified: `tsc -b` and `npm run lint` clean throughout. PDFs regenerated for every file that changed.
+
+**Still open:** Fleetio needs to be re-added from scratch (or recovered) if Bill wants it back on the dashboard. Also worth asking Bill directly whether he has hands-on Figma-to-code/design-token experience (Kong/Consertus both asked, still unconfirmed) — if yes, `personal-projects-skills.md` needs updating and both applications would need another pass.
+
+## Round 11 — "Check listings" button (proposed, not yet built)
+
+Bill wants a header button that walks every application's job URL, detects dead links or "position filled" language, and auto-marks those as a new `filled` status — with filled rows grayed out and sorted to the bottom.
+
+### Todo
+
+- [x] `src/types.ts` — add `'filled'` to `ApplicationStatus` / `APPLICATION_STATUSES` (label "Filled")
+- [x] `src/index.css` — add a `--status-filled` color pair (muted gray, light + dark variants), matching the existing per-status token pattern
+- [x] `vite.config.ts` — new dev-only `POST /api/check-listing` endpoint (`{ id }` in, single application at a time): server-side `fetch()`s that app's `jobUrl` with a browser-like User-Agent and a ~15s timeout, classifies the result, and — only for `filled`/`broken` — writes the status to `meta.json` and rebuilds the manifest, same guarded path pattern as `/api/status`
+- [x] `src/App.tsx` — `handleCheckListings()`: loops sequentially (not parallel — deliberate, so as not to hammer several job sites at once and so progress is visible one at a time) over applications that have a `jobUrl` and aren't already `filled`, calling `/api/check-listing` one at a time, updating local state as results land
+- [x] Header UI — a "Check listings" button (far right of the `app-header` row, next to "Resume Targeter") with a `RefreshCw`-style icon (`lucide-react`, already a dependency); shows "Checking 3 of 9…" while running, then a short-lived summary ("Checked 9 — 2 marked Filled, 1 unreachable") next to it, same fade-after-a-few-seconds pattern `AddApplication.tsx` already uses for its "Copied" hint
+- [x] `ApplicationList.tsx` — sort filled applications to the bottom regardless of the active sort (date/fit becomes the secondary key, "is filled" the primary key); add a `.application-row--filled` style (reduced opacity) in `App.css`
+- [x] `StatusSummary.tsx` — the new "Filled" status gets a summary tile + filter, same as the other five (came free — it already derives tiles from `APPLICATION_STATUSES`)
+- [x] Two-column homepage layout (added mid-round, Bill's request): widened `.app-shell` to 1240px; `.home-layout` grid puts the narrow "Screen a job posting" form in a ~240–300px left column and status tiles/search/sort/list in the right column (collapses to one column under 720px)
+
+### Detection heuristic (server side, no new dependencies)
+
+Verified against 3 of Bill's real example URLs by curling them with a browser-like User-Agent and inspecting the raw HTML (i.e., exactly what the new server-side `fetch()` will see — not what a browser with JS renders):
+
+- Network error/timeout, or HTTP 404/410 → **broken** (confirmed: Airbnb's Greenhouse-hosted posting returns a plain 404 for a pulled listing)
+- HTTP 200 whose raw HTML contains a closed-posting signal → **filled**:
+  - LinkedIn `/jobs/view/<id>/`: confirmed closed listings statically render `<figcaption class="closed-job__flavor--closed">No longer accepting applications</figcaption>` — match on that class or phrase
+  - Greenhouse `job-boards.greenhouse.io/<org>/jobs/<id>`: confirmed closed/removed listings 200-redirect to the org's root board with `?error=true` and a generic `<title>Jobs at <org>` — no plain-text message server-side, so detect this by comparing the final resolved URL to the requested one (path collapsed to the org root and/or `error=true` present)
+  - Generic fallback phrase list for other boards (Lever, plain company career pages, etc.) — "no longer accepting applications," "position has been filled," "this posting has expired," "no longer active," case-insensitive
+- Anything else (200 with no match, or a blocked/anomalous status like 403/500) → **inconclusive**, left alone, called out in the summary as "couldn't check"
+- Both **broken** and **filled** results write `status: "filled"` to `meta.json` (per Bill's framing — either signal means "stop tracking this one")
+
+**Confirmed real limitation:** LinkedIn's `/jobs/collections/recommended/...` feed-style URL (one of Bill's 4 examples) is algorithmic/client-rendered — the specific job's open/closed state never appears in the static HTML regardless of actual status, so it's structurally undetectable this way. Workday `ExternalCareerSite` links are almost certainly the same (full SPA), though not directly verified this round. These land in **inconclusive**, not a false "filled." Anything using a direct, job-specific static URL (LinkedIn `/jobs/view/`, Greenhouse, plain career pages) should work; algorithmic/feed URLs and heavy SPA boards won't be reliably auto-detected — Bill will still need to eyeball those manually.
+
+Applications without a `jobUrl` (pasted-only postings) are skipped, not counted as errors.
+
+Manual override stays available either way: the status dropdown is never locked, so any wrong auto-mark can be flipped back by hand.
+
+**Verified live in Chrome** with a throwaway test entry pointed at a real closed LinkedIn posting Bill supplied (`/jobs/view/4443005111/`): clicking "Check listings" correctly classified it as a closed posting and flipped it to Filled — row went gray and sank below all 11 real applications regardless of the active date sort — while none of the 11 real, still-open applications' actual job URLs got a false positive (all 11 landed in "couldn't check," mostly Ashby/Greenhouse/JS-rendered boards, exactly the known limitation called out above). Test entry deleted afterward via `/api/delete`; dashboard reset to its real 11 applications. `tsc -b` and `npm run lint` pass clean.
+
+**One layout bug found and fixed along the way:** narrowing `AddApplication.tsx`'s form into the new ~280px left column broke its button row — "Copy prompt for Claude" was wide enough to overflow its flex container and visually spill into the list column. Fixed by changing `.add-application-row` from a horizontal flex row to a vertical stack (input, then Clear, then Copy prompt, each full-width) — Bill confirmed this stacked layout is what he wanted anyway.

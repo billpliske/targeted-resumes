@@ -4,6 +4,7 @@ import type { Application, ApplicationStatus } from '../types'
 import MarkdownView from './MarkdownView'
 import KeywordCompare from './KeywordCompare'
 import StatusSelect from './StatusSelect'
+import FitBadge from './FitBadge'
 
 interface ApplicationDetailProps {
   application: Application
@@ -36,11 +37,13 @@ function ApplicationDetail({
   useEffect(() => {
     let cancelled = false
 
-    const files: Record<DocKey, string> = {
+    const files: Partial<Record<DocKey, string>> = {
       jobPosting: `${baseUrl}/${application.jobPostingFile}`,
-      resume: `${baseUrl}/${application.resumeFile}`,
-      coverLetter: `${baseUrl}/${application.coverLetterFile}`,
-      originalResume: '/original-resume.md',
+    }
+    if (application.tailored) {
+      files.resume = `${baseUrl}/${application.resumeFile}`
+      files.coverLetter = `${baseUrl}/${application.coverLetterFile}`
+      files.originalResume = '/original-resume.md'
     }
 
     Object.entries(files).forEach(([key, url]) => {
@@ -68,11 +71,15 @@ function ApplicationDetail({
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'posting', label: 'Job posting' },
-    ...(hasKeywords
-      ? [{ key: 'keywords' as TabKey, label: 'Keyword targeting' }]
+    ...(application.tailored
+      ? [
+          ...(hasKeywords
+            ? [{ key: 'keywords' as TabKey, label: 'Keyword targeting' }]
+            : []),
+          { key: 'resume' as TabKey, label: 'Resume' },
+          { key: 'coverLetter' as TabKey, label: 'Cover letter' },
+        ]
       : []),
-    { key: 'resume', label: 'Resume' },
-    { key: 'coverLetter', label: 'Cover letter' },
   ]
 
   return (
@@ -113,6 +120,19 @@ function ApplicationDetail({
           <a href={application.jobUrl} target="_blank" rel="noreferrer">
             View original job posting
           </a>
+        )}
+        {application.fitRating && (
+          <div className="fit-summary">
+            <FitBadge rating={application.fitRating} />
+            {application.fitSummary && <p>{application.fitSummary}</p>}
+          </div>
+        )}
+        {!application.tailored && (
+          <p className="screened-only-hint">
+            Screened only — no resume or cover letter generated yet. Ask
+            Claude Code to "fully tailor the {application.company} application"
+            to generate them for this posting.
+          </p>
         )}
       </header>
 
@@ -157,7 +177,7 @@ function ApplicationDetail({
         </section>
       )}
 
-      {activeTab === 'resume' && (
+      {activeTab === 'resume' && application.resumePdf && (
         <section className="detail-section">
           <div className="detail-section-heading">
             <a href={`${baseUrl}/${application.resumePdf}`} download>
@@ -172,7 +192,7 @@ function ApplicationDetail({
         </section>
       )}
 
-      {activeTab === 'coverLetter' && (
+      {activeTab === 'coverLetter' && application.coverLetterPdf && (
         <section className="detail-section">
           <div className="detail-section-heading">
             <a href={`${baseUrl}/${application.coverLetterPdf}`} download>

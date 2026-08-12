@@ -9,7 +9,17 @@ interface MarkdownViewProps {
 function MarkdownView({ content }: MarkdownViewProps) {
   return (
     <div className="markdown-view">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw]}
+        components={{
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noreferrer">
+              {children}
+            </a>
+          ),
+        }}
+      >
         {content}
       </ReactMarkdown>
     </div>

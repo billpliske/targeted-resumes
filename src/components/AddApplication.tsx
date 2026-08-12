@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 
 function buildPrompt(text: string, url: string) {
-  const lines = ['Tailor my resume for this job posting using the add-application skill.']
+  const lines = ['Check how well this job posting fits my skills using the check-fit skill.']
   if (url) {
     lines.push('', `Job URL: ${url}`)
   }
@@ -29,9 +29,15 @@ function AddApplication() {
     }
   }
 
+  function handleClear() {
+    setText('')
+    setUrl('')
+    setCopied(false)
+  }
+
   return (
     <form className="add-application" onSubmit={handleSubmit}>
-      <label htmlFor="job-text">Add a new application</label>
+      <label htmlFor="job-text">Screen a job posting</label>
       <textarea
         id="job-text"
         className="add-application-textarea"
@@ -49,12 +55,15 @@ function AddApplication() {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
         />
+        <button type="button" className="secondary" onClick={handleClear}>
+          Clear
+        </button>
         <button type="submit">Copy prompt for Claude</button>
       </div>
       <p className="add-application-hint">
         {copied
-          ? 'Copied — paste it into a Claude Code chat in this repo to generate the tailored resume.'
-          : "This copies a ready-to-paste message to your clipboard. Generation happens in a Claude Code chat, not in the browser — paste it there and it'll show up here when it's done."}
+          ? 'Copied — paste it into a Claude Code chat to get a fit rating without generating a full resume yet.'
+          : "This copies a ready-to-paste check-fit message to your clipboard — paste it into a Claude Code chat to get a rating and summary saved to the dashboard. To fully tailor a resume and cover letter for one you decide to pursue, just ask Claude directly in chat rather than through this box."}
       </p>
     </form>
   )

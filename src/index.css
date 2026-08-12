@@ -18,6 +18,8 @@
   --status-offer-bg: rgba(21, 128, 61, 0.12);
   --status-rejected: #b91c1c;
   --status-rejected-bg: rgba(185, 28, 28, 0.1);
+  --status-filled: #57534e;
+  --status-filled-bg: rgba(87, 83, 78, 0.1);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -54,6 +56,8 @@
     --status-offer-bg: rgba(74, 222, 128, 0.15);
     --status-rejected: #f87171;
     --status-rejected-bg: rgba(248, 113, 113, 0.15);
+    --status-filled: #a8a29e;
+    --status-filled-bg: rgba(168, 162, 158, 0.15);
   }
 }
 

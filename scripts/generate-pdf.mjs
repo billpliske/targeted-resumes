@@ -15,7 +15,8 @@ const pdf = await mdToPdf(
   { path: path.resolve(inputPath) },
   {
     dest: path.resolve(outputPath),
-    css_path: themePath,
+    stylesheet: [themePath],
+    page_media_type: 'print',
     pdf_options: {
       format: 'Letter',
       margin: { top: '0.6in', bottom: '0.6in', left: '0.75in', right: '0.75in' },
