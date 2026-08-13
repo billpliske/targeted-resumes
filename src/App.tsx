@@ -182,7 +182,7 @@ function App() {
           <h1>
             Targeted Resumes <span className="app-version">v{__APP_VERSION__}</span>
             {latestVersion && repoUrl && isNewerVersion(latestVersion, __APP_VERSION__) && (
-              <Tooltip label={`v${latestVersion} is available — click to view on GitHub`}>
+              <Tooltip label={`v${latestVersion} is available — pull the latest and restart npm run dev to update (click to view on GitHub)`}>
                 <a
                   href={repoUrl}
                   target="_blank"
