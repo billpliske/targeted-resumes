@@ -483,6 +483,19 @@
   margin-bottom: 12px;
 }
 
+.reveal-button {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.reveal-button:hover {
+  text-decoration: underline;
+}
+
 .markdown-view {
   margin-top: 12px;
   line-height: 1.6;

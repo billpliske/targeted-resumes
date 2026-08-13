@@ -17,6 +17,27 @@ type DocKey = 'jobPosting' | 'resume' | 'coverLetter' | 'originalResume'
 
 type TabKey = 'posting' | 'keywords' | 'resume' | 'coverLetter'
 
+// The on-disk filename is the same for every application (from Settings),
+// so a plain download would collide/overwrite across companies in the
+// Downloads folder — suffix the downloaded name with the company to keep
+// them distinct without renaming anything on disk.
+function withCompanySuffix(filename: string, company: string) {
+  const dot = filename.lastIndexOf('.')
+  if (dot === -1) return `${filename} - ${company}`
+  return `${filename.slice(0, dot)} - ${company}${filename.slice(dot)}`
+}
+
+// Label matches what the reveal endpoint can actually do per OS: Finder
+// selects the exact file on macOS, so does Explorer on Windows, but Linux
+// has no universal "select this file" command across file managers — it
+// can only open the containing folder, so the label shouldn't overclaim.
+function revealButtonLabel() {
+  const platform = navigator.platform || ''
+  if (platform.startsWith('Mac')) return 'Reveal in Finder'
+  if (platform.startsWith('Win')) return 'Show in Explorer'
+  return 'Open folder'
+}
+
 function ApplicationDetail({
   application,
   onBack,
@@ -30,9 +51,26 @@ function ApplicationDetail({
     originalResume: null,
   })
   const [activeTab, setActiveTab] = useState<TabKey>('posting')
+  const [revealError, setRevealError] = useState<string | null>(null)
 
   const baseUrl = `/applications/${application.id}`
   const hasKeywords = (application.keywords?.length ?? 0) > 0
+
+  async function handleReveal(file: 'resume' | 'coverLetter') {
+    setRevealError(null)
+    try {
+      const res = await fetch('/api/reveal-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: application.id, file }),
+      })
+      if (!res.ok) throw new Error('Request failed')
+    } catch {
+      setRevealError(
+        "Couldn't open Finder. Make sure `npm run dev` is running, then try again.",
+      )
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -180,10 +218,21 @@ function ApplicationDetail({
       {activeTab === 'resume' && application.resumePdf && (
         <section className="detail-section">
           <div className="detail-section-heading">
-            <a href={`${baseUrl}/${application.resumePdf}`} download>
+            <button
+              type="button"
+              className="reveal-button"
+              onClick={() => handleReveal('resume')}
+            >
+              {revealButtonLabel()}
+            </button>
+            <a
+              href={`${baseUrl}/${application.resumePdf}`}
+              download={withCompanySuffix(application.resumePdf, application.company)}
+            >
               Download PDF
             </a>
           </div>
+          {revealError && <p className="settings-error">{revealError}</p>}
           {docs.resume ? (
             <MarkdownView content={docs.resume} />
           ) : (
@@ -195,10 +244,21 @@ function ApplicationDetail({
       {activeTab === 'coverLetter' && application.coverLetterPdf && (
         <section className="detail-section">
           <div className="detail-section-heading">
-            <a href={`${baseUrl}/${application.coverLetterPdf}`} download>
+            <button
+              type="button"
+              className="reveal-button"
+              onClick={() => handleReveal('coverLetter')}
+            >
+              {revealButtonLabel()}
+            </button>
+            <a
+              href={`${baseUrl}/${application.coverLetterPdf}`}
+              download={withCompanySuffix(application.coverLetterPdf, application.company)}
+            >
               Download PDF
             </a>
           </div>
+          {revealError && <p className="settings-error">{revealError}</p>}
           {docs.coverLetter ? (
             <MarkdownView content={docs.coverLetter} />
           ) : (

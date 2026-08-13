@@ -7,7 +7,7 @@ Fast triage path: saves a lightweight entry to the dashboard (job posting + fit 
 
 ## Inputs
 
-- Pasted job posting text (default) or a URL (fetch it if no text is given — same fetch caveats as `add-application`: many job boards render client-side and won't fetch cleanly, so ask the user to paste the text if a fetch comes back thin).
+- Pasted job posting text (default) or a URL (fetch it if no text is given — same fetch caveats as `add-application`: many job boards render client-side and won't fetch cleanly, so ask the user to paste the text if a fetch comes back thin). Include the URL alongside pasted text when the user has it — it's what lets them jump back to the real listing from the dashboard later — but don't interrupt a batch-triage flow to ask for one on every posting; that defeats the point of this skill.
 - The canonical source resume: `public/original-resume.md`. Never edit this file.
 - `public/personal-projects-skills.md`, if present — a verified checklist of what's actually demonstrated in the user's public GitHub repos, plus tools confirmed real by the user but not in those repos. Check it alongside the source resume when assessing fit against tool-specific keywords (Figma, Storybook, testing, specific frameworks) that the narrative resume bullets don't capture.
 

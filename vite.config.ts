@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
 import { readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs'
+import { execFile } from 'node:child_process'
 // @ts-expect-error -- plain JS script, no type declarations
 import { buildManifest } from './scripts/build-manifest.mjs'
 
@@ -254,6 +255,83 @@ function deleteApiPlugin(): Plugin {
   }
 }
 
+function revealFilePlugin(): Plugin {
+  return {
+    name: 'reveal-file-api',
+    configureServer(server) {
+      server.middlewares.use('/api/reveal-file', (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+
+        readJsonBody(req)
+          .then(({ id, file }) => {
+            const dir = resolveApplicationDir(id)
+            if (!dir || (file !== 'resume' && file !== 'coverLetter')) {
+              res.statusCode = 400
+              res.end('Invalid request')
+              return
+            }
+
+            const metaPath = path.join(dir, 'meta.json')
+            if (!existsSync(metaPath)) {
+              res.statusCode = 404
+              res.end('Application not found')
+              return
+            }
+
+            const meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
+            const filename = file === 'resume' ? meta.resumePdf : meta.coverLetterPdf
+            const filePath =
+              typeof filename === 'string' && filename
+                ? path.join(dir, filename)
+                : null
+
+            if (!filePath || !existsSync(filePath)) {
+              res.statusCode = 404
+              res.end('File not found')
+              return
+            }
+
+            let command: string
+            let args: string[]
+            if (process.platform === 'darwin') {
+              command = 'open'
+              args = ['-R', filePath]
+            } else if (process.platform === 'win32') {
+              command = 'explorer'
+              args = [`/select,${filePath}`]
+            } else {
+              // No universal "select this file" command on Linux — best
+              // effort is opening the containing folder.
+              command = 'xdg-open'
+              args = [dir]
+            }
+
+            execFile(command, args, (err) => {
+              // explorer.exe on Windows commonly exits non-zero even on
+              // success, so only treat "command not found" as a real
+              // failure, not a non-zero exit.
+              if (err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
+                res.statusCode = 500
+                res.end('Could not open the file manager')
+                return
+              }
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ ok: true }))
+            })
+          })
+          .catch(() => {
+            res.statusCode = 500
+            res.end('Server error')
+          })
+      })
+    },
+  }
+}
+
 function checkListingPlugin(): Plugin {
   return {
     name: 'check-listing-api',
@@ -416,6 +494,7 @@ export default defineConfig({
     react(),
     statusApiPlugin(),
     deleteApiPlugin(),
+    revealFilePlugin(),
     checkListingPlugin(),
     settingsApiPlugin(),
     uploadTextFilePlugin('/api/upload-resume', 'original-resume.md'),

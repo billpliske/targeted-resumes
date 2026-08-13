@@ -7,38 +7,58 @@ A tool for tailoring a resume and cover letter to individual job postings, witho
 - Node.js
 - [Claude Code](https://claude.com/product/claude-code) with an active subscription (or API billing set up) — this is what actually does the tailoring. There's no bundled or free AI access; you bring your own Claude Code.
 
-## How it works
+## Quickstart
 
-There's no backend and no LLM API key baked into this app. Generation happens through a Claude Code chat using this repo's `add-application` skill; the React app itself is a static, read-only dashboard that displays whatever's already been generated and saved to disk.
+**1. Fork this repo, then clone your fork and install.**
 
 ```
-Paste a job posting  →  Claude tailors resume + cover letter  →  Dashboard shows it
-   (in the app)          (in a Claude Code chat, via the           (browse, compare,
-                          add-application skill)                    download PDFs)
+git clone <your-fork-url>
+cd targeted-resumes
+npm install
 ```
 
-## Setup (if you've forked this)
+**2. Start the dashboard.**
 
-1. `npm install`, then `npm run dev` and open the app.
-2. Click the gear icon (top right) to open **Settings**. Enter your name and the PDF filenames you want tailored resumes/cover letters saved as (these default to `<Your Name> Resume.pdf` / `<Your Name> Cover Letter.pdf` — edit if you want something else).
-3. Upload your resume as a markdown file — this becomes the canonical source every application gets tailored from. No PDF/DOCX support; write or convert it to markdown first. Optionally upload a cover letter template too (a voice/format reference — cover letters are drafted fresh per posting, not reused verbatim).
-4. Optional: if you have public GitHub repos worth citing (a portfolio site, a side project) — genuinely useful if you list one on applications — add their URLs under **Personal project repos** in Settings (paste a URL, click Add; click the trash icon to remove one later). Click Save, then ask Claude Code, in a chat in this repo, to "sync my personal projects." That runs the `update-personal-projects` skill, which clones each repo fresh and reads the actual code — dependencies, real integrations, what's genuinely there — to regenerate `public/personal-projects-skills.md`. **Don't hand-write that file from memory or ask an AI to guess at it** — that risks the exact fabrication this tool is built to avoid; the skill exists specifically so nothing in it is invented. Re-run the sync any time you add, remove, or meaningfully change a repo. Skip this step entirely if you don't need it — both tailoring skills work fine without the file.
+```
+npm run dev
+```
 
-No separate indexing or setup step is needed before your first job posting — keywords aren't pre-built from your resume ahead of time. Each application's skill extracts its own 5–10 keywords straight from that job posting's text, on the spot, and compares them against whatever's currently in your resume file. Posting #1 and posting #100 both work the same way.
+Open **http://localhost:5173**. Leave this terminal running for the whole session — it's the local server your browser talks to for everything except the AI tailoring itself.
 
-None of this is committed to git — `public/settings.json`, `public/original-resume.md`, `public/cover-letter-template.md`, `public/personal-projects-skills.md`, `public/applications/`, and the generated manifest are all gitignored, so forking and pushing your own changes back never risks leaking your personal data.
+**3. Fill out Settings.** Click the gear icon, top right.
 
-## Using it
+- Your name and the PDF filenames you want (defaults to `<Your Name> Resume.pdf` / `<Your Name> Cover Letter.pdf`).
+- Upload your resume as a markdown file (`.md`) — this becomes the source every application gets tailored from.
+- Optional: a cover letter template (style reference only, never reused verbatim), and any public GitHub repo URLs under "Personal project repos" (synced in step 4, below).
+- Click **Save**.
 
-1. **Add a job posting.** Paste the full job posting text into the "Screen a job posting" box (the URL is optional — it's just saved as a reference link, since many job boards render their content via JavaScript and won't fetch cleanly). Click "Copy prompt for Claude."
+**4. Open a second window: Claude Code, in the same repo folder.**
 
-2. **Hand it to Claude Code.** Paste the copied prompt into a Claude Code chat in this repo. It fetches/reads the posting, extracts key requirements, and uses the `writer` subagent to tailor your resume into a resume and a standalone cover letter — rewording and re-emphasizing real experience to match the posting, never inventing skills or accomplishments. Genuine gaps get flagged, not papered over. It then generates PDFs and updates the dashboard.
+```
+cd targeted-resumes
+claude
+```
 
-3. **Review it.** Refresh the dashboard, click into the new application, and go through the tabs: Job Posting, Keyword Targeting (a before/after compare showing which terms from the posting actually got reinforced, and by how much), Resume, Cover Letter. Always review before using anything — nothing here should go out unreviewed.
+This is the two-window model for the whole app: your **browser tab** is the dashboard — where you paste postings, review results, and organize applications. Your **terminal** is where the actual AI work happens — Claude reads your resume, tailors it, drafts the cover letter, generates PDFs. The dashboard can't do that part itself (no API key baked in, nothing automated) — pasting into this terminal is the step that does it. Keep both windows open and switch between them as you go.
 
-4. **Apply.** Grab the PDFs — either the "Download PDF" links in the dashboard, or straight from `public/applications/<date>-<company>-<role>/` in Finder, named whatever you set in Settings, ready to upload as-is.
+If you added personal-project repos in step 3, ask Claude here now: *"sync my personal projects."*
 
-5. **Track it.** Update the application's status from the dropdown (Not Applied → Applied → Interviewing → Offer/Rejected/Filled) as things move. The home screen shows running counts per status, with click-to-filter. The "Check listings" button walks every application's job URL and flags dead or closed postings as Filled automatically (best-effort — some job boards render enough server-side to detect, others don't).
+**5. Add a job posting.**
+
+- **In the browser:** paste the full posting text into "Screen a job posting." Include the job URL too if you have it — **strongly recommended, not required**: it's what lets you click straight back to the real listing from the dashboard later when you're ready to apply, instead of hunting for it again on LinkedIn or wherever you found it. Click **Copy prompt for Claude**.
+- **Switch to the terminal — this is the one point where you interact with it directly.** Paste, hit Enter. Claude reads the posting, rates the fit, and — for a strong or good match — tailors your resume and cover letter and generates both PDFs, all in that one terminal turn (usually well under a minute; you'll watch it happen).
+- **Switch back to the browser and refresh.** The new application is in the list.
+
+**6. Review it.** Click into the application and go through the tabs — Job Posting, Keyword Targeting, Resume, Cover Letter. Always read before sending anything out; nothing here is meant to go out unreviewed.
+
+**7. Apply — grab the right file, every time.** Next to the Resume or Cover Letter tab:
+
+- **Reveal in Finder** (Explorer on Windows, Open folder on Linux) — opens your file manager with *that application's* exact PDF selected. No ambiguity, even deep into a long session of applying to job after job.
+- **Download PDF** — also safe now: the downloaded filename includes the company (e.g. `Jane Doe Resume - Acme Corp.pdf`), so it won't overwrite the last one in your Downloads folder.
+
+**8. Track it.** Update status from the dropdown (Not Applied → Applied → Interviewing → Offer/Rejected/Filled) as things move. **Check listings** (top right) walks every application's job URL and flags dead/closed postings as Filled automatically — best-effort, some job boards render too little server-side to detect.
+
+None of your personal data is committed to git — `public/settings.json`, `public/original-resume.md`, `public/cover-letter-template.md`, `public/personal-projects-skills.md`, `public/applications/`, and the generated manifest are all gitignored, so pushing changes back to your fork never risks leaking it.
 
 ## Where things live
 
@@ -59,7 +79,7 @@ public/
 
 ## Development
 
-- `npm run dev` — start the dashboard (also runs the local dev-only API endpoints the dashboard uses: `/api/status` and `/api/delete` for one-click status edits/deletions, `/api/check-listing` for the dead-listing checker, `/api/settings` and `/api/upload-resume`/`/api/upload-cover-letter-template` for the Settings panel — no external calls, no secrets)
+- `npm run dev` — start the dashboard (also runs the local dev-only API endpoints it uses: `/api/status`/`/api/delete` for status edits/deletions, `/api/check-listing` for the dead-listing checker, `/api/reveal-file` for Reveal in Finder, `/api/settings` and `/api/upload-resume`/`/api/upload-cover-letter-template` for the Settings panel — no external calls, no secrets)
 - `npm run lint` — ESLint
 - `npm run manifest` — rebuild `public/applications-manifest.json` from each application's `meta.json` (the `add-application` skill does this automatically)
 - `node scripts/generate-pdf.mjs <input.md> <output.pdf>` — render a markdown file to a styled PDF

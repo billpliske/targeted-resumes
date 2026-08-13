@@ -51,7 +51,7 @@ function AddApplication() {
         <input
           id="job-url"
           type="url"
-          placeholder="Job URL (optional — saved as a reference link)"
+          placeholder="Job URL (strongly recommended — lets you jump straight back to the listing when you apply)"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
         />
