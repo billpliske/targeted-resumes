@@ -18,6 +18,19 @@ interface CheckListingResponse {
   outcome: 'broken' | 'filled' | 'inconclusive'
 }
 
+// Simple major.minor.patch comparison — deliberately not a blind
+// inequality check. A local version can legitimately be *ahead* of
+// what's pushed to GitHub (e.g. bumped locally but not yet committed),
+// and showing "update available" in that case would be a false signal.
+function isNewerVersion(remote: string, local: string): boolean {
+  const toParts = (v: string) => v.split('.').map((n) => parseInt(n, 10) || 0)
+  const [remoteMajor, remoteMinor, remotePatch] = toParts(remote)
+  const [localMajor, localMinor, localPatch] = toParts(local)
+  if (remoteMajor !== localMajor) return remoteMajor > localMajor
+  if (remoteMinor !== localMinor) return remoteMinor > localMinor
+  return remotePatch > localPatch
+}
+
 function App() {
   const [applications, setApplications] = useState<Application[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -29,6 +42,18 @@ function App() {
   )
   const [checkSummary, setCheckSummary] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [latestVersion, setLatestVersion] = useState<string | null>(null)
+  const [repoUrl, setRepoUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/latest-version')
+      .then((res) => (res.ok ? res.json() : { latestVersion: null }))
+      .then((data: { latestVersion: string | null; repoUrl?: string }) => {
+        setLatestVersion(data.latestVersion)
+        setRepoUrl(data.repoUrl ?? null)
+      })
+      .catch(() => setLatestVersion(null))
+  }, [])
 
   useEffect(() => {
     fetch('/applications-manifest.json')
@@ -154,7 +179,21 @@ function App() {
     <div className="app-shell">
       <header className="app-header">
         <div>
-          <h1>Targeted Resumes</h1>
+          <h1>
+            Targeted Resumes <span className="app-version">v{__APP_VERSION__}</span>
+            {latestVersion && repoUrl && isNewerVersion(latestVersion, __APP_VERSION__) && (
+              <Tooltip label={`v${latestVersion} is available — click to view on GitHub`}>
+                <a
+                  href={repoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="update-available"
+                >
+                  Update available
+                </a>
+              </Tooltip>
+            )}
+          </h1>
           <p>Tailored resumes and cover letters, organized by application.</p>
         </div>
         <div className="header-actions">

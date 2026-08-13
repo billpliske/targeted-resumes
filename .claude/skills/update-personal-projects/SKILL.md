@@ -1,13 +1,13 @@
 ---
 name: update-personal-projects
-description: Regenerate public/personal-projects-skills.md by reading the real code in the user's personal-project GitHub repos (configured in the dashboard's Settings panel). Trigger on requests like "sync my personal projects", "update my personal projects skills file", "add my new repo to personal projects", or after the user has added/removed a repo URL in Settings.
+description: Regenerate public/personal-projects-skills.md by reading the real code in the user's personal-project repos (GitHub, GitLab, Bitbucket, or any other git host — configured in the dashboard's Settings panel). Trigger on requests like "sync my personal projects", "update my personal projects skills file", "add my new repo to personal projects", or after the user has added/removed a repo URL in Settings.
 ---
 
 Builds a verified, honest checklist of what's actually demonstrated in the user's public personal-project repos, for the `add-application`/`check-fit` skills to cite during tailoring. The whole point is that nothing in the output is guessed — every line traces back to something actually read in the repo's code, not a README claim or an assumption.
 
 ## Input
 
-Read `public/settings.json`'s `personalProjectRepos` — a list of public GitHub repo URLs the user maintains in the Settings panel (gear icon). If the list is empty, tell the user there's nothing to sync (and that they can add repos via Settings) and stop here.
+Read `public/settings.json`'s `personalProjectRepos` — a list of public repo URLs (GitHub, GitLab, Bitbucket, or any other host `git clone` can reach) the user maintains in the Settings panel (gear icon). If the list is empty, tell the user there's nothing to sync (and that they can add repos via Settings) and stop here.
 
 ## Steps
 
@@ -27,7 +27,7 @@ Read `public/settings.json`'s `personalProjectRepos` — a list of public GitHub
    ```markdown
    # Personal Projects — Verified Skills Reference
 
-   Source of truth for what's genuinely demonstrated in the user's public GitHub repos — the ones actually linked from job applications when a posting asks for a GitHub/portfolio URL. Employers can click through and inspect these directly, so nothing listed here should overstate what's really in them.
+   Source of truth for what's genuinely demonstrated in the user's public repos — the ones actually linked from job applications when a posting asks for a code/portfolio URL. Employers can click through and inspect these directly, so nothing listed here should overstate what's really in them.
 
    - **<repo-name>** — <url> (<one-line description of what it is>)
    [... one line per repo ...]

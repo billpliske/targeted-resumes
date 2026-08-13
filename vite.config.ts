@@ -24,7 +24,6 @@ const CLOSED_LISTING_SIGNALS = [
   'this position has been filled',
   'job is no longer available',
   'posting has expired',
-  'no longer active',
   'closed to applications',
   'this job posting is no longer active',
   'we are no longer accepting',
@@ -32,6 +31,24 @@ const CLOSED_LISTING_SIGNALS = [
   'this job has expired',
   'job listing is no longer active',
 ]
+
+// Strips <script>/<style> blocks, comments, and tags, leaving just the
+// text a person actually sees on the page. Exists because a real false
+// positive slipped through: 'no longer active' coincidentally appeared
+// inside a giant window.i18n = {...} translation-string blob in a
+// <script> tag on a State Farm posting — unrelated boilerplate for some
+// other widget, not anything describing the job itself. Only used for
+// the CLOSED_LISTING_SIGNALS check below; the Ashby JobPosting schema
+// check further down deliberately still reads raw HTML, since that
+// schema.org JSON-LD block legitimately lives inside a <script> tag.
+function extractVisibleText(html: string): string {
+  return html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+}
 
 const CHECK_LISTING_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -87,9 +104,9 @@ async function classifyListing(
   }
 
   const html = await response.text()
-  const lowerHtml = html.toLowerCase()
+  const visibleText = extractVisibleText(html).toLowerCase()
 
-  if (CLOSED_LISTING_SIGNALS.some((signal) => lowerHtml.includes(signal))) {
+  if (CLOSED_LISTING_SIGNALS.some((signal) => visibleText.includes(signal))) {
     return { outcome: 'filled', httpStatus: response.status }
   }
 
@@ -150,20 +167,33 @@ function readRawBody(
 
 const settingsPath = path.resolve('public', 'settings.json')
 
+interface ManualProject {
+  name: string
+  description: string
+  details: string
+}
+
 interface Settings {
   name: string
   resumeFilename: string
   coverLetterFilename: string
   personalProjectRepos: string[]
+  manualProjects: ManualProject[]
 }
 
 function readSettings(): Settings {
   if (!existsSync(settingsPath)) {
-    return { name: '', resumeFilename: '', coverLetterFilename: '', personalProjectRepos: [] }
+    return {
+      name: '',
+      resumeFilename: '',
+      coverLetterFilename: '',
+      personalProjectRepos: [],
+      manualProjects: [],
+    }
   }
   const parsed = JSON.parse(readFileSync(settingsPath, 'utf-8'))
-  // personalProjectRepos didn't exist in earlier settings.json files
-  return { personalProjectRepos: [], ...parsed }
+  // personalProjectRepos/manualProjects didn't exist in earlier settings.json files
+  return { personalProjectRepos: [], manualProjects: [], ...parsed }
 }
 
 function statusApiPlugin(): Plugin {
@@ -445,13 +475,22 @@ function settingsApiPlugin(): Plugin {
         }
 
         readJsonBody(req)
-          .then(({ name, resumeFilename, coverLetterFilename, personalProjectRepos }) => {
+          .then(({ name, resumeFilename, coverLetterFilename, personalProjectRepos, manualProjects }) => {
+            const isValidManualProject = (p: unknown): p is ManualProject =>
+              typeof p === 'object' &&
+              p !== null &&
+              typeof (p as ManualProject).name === 'string' &&
+              typeof (p as ManualProject).description === 'string' &&
+              typeof (p as ManualProject).details === 'string'
+
             if (
               typeof name !== 'string' ||
               typeof resumeFilename !== 'string' ||
               typeof coverLetterFilename !== 'string' ||
               !Array.isArray(personalProjectRepos) ||
-              !personalProjectRepos.every((repo) => typeof repo === 'string')
+              !personalProjectRepos.every((repo) => typeof repo === 'string') ||
+              !Array.isArray(manualProjects) ||
+              !manualProjects.every(isValidManualProject)
             ) {
               res.statusCode = 400
               res.end('Invalid request')
@@ -463,6 +502,7 @@ function settingsApiPlugin(): Plugin {
               resumeFilename,
               coverLetterFilename,
               personalProjectRepos,
+              manualProjects,
             }
             writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n')
 
@@ -513,8 +553,64 @@ function uploadTextFilePlugin(routePath: string, targetFile: string): Plugin {
   }
 }
 
+const appVersion = JSON.parse(readFileSync('package.json', 'utf-8')).version
+
+// Which repo the "update available" check compares against. Hardcoded
+// rather than read from the local git remote: a forker's clone of their
+// own fork would otherwise compare against their own repo (meaningless —
+// just tells them if they have unpushed local changes) instead of the
+// upstream project they actually forked. If you're maintaining your own
+// fork and want your own users notified of your updates, change this to
+// your repo instead.
+const UPSTREAM_REPO = 'billpliske/targeted-resumes'
+
+function latestVersionPlugin(): Plugin {
+  return {
+    name: 'latest-version-api',
+    configureServer(server) {
+      server.middlewares.use('/api/latest-version', (req, res) => {
+        if (req.method !== 'GET') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 5000)
+
+        fetch(
+          `https://raw.githubusercontent.com/${UPSTREAM_REPO}/main/package.json`,
+          { signal: controller.signal },
+        )
+          .then((r) => (r.ok ? r.json() : null))
+          .then((pkg) => {
+            const version = (pkg as { version?: string } | null)?.version ?? null
+            res.setHeader('Content-Type', 'application/json')
+            res.end(
+              JSON.stringify({
+                latestVersion: version,
+                repoUrl: `https://github.com/${UPSTREAM_REPO}`,
+              }),
+            )
+          })
+          // Soft-fail always — no internet, GitHub down, whatever. This
+          // is a nice-to-have nudge, never something that should surface
+          // as an error to the user.
+          .catch(() => {
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ latestVersion: null }))
+          })
+          .finally(() => clearTimeout(timeout))
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
   plugins: [
     react(),
     statusApiPlugin(),
@@ -522,6 +618,7 @@ export default defineConfig({
     revealFilePlugin(),
     checkListingPlugin(),
     settingsApiPlugin(),
+    latestVersionPlugin(),
     uploadTextFilePlugin('/api/upload-resume', 'original-resume.md'),
     uploadTextFilePlugin(
       '/api/upload-cover-letter-template',
