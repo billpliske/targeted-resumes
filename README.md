@@ -39,14 +39,16 @@ cd targeted-resumes
 claude
 ```
 
-This is the two-window model for the whole app: your **browser tab** is the dashboard — where you paste postings, review results, and organize applications. Your **terminal** is where the actual AI work happens — Claude reads your resume, tailors it, drafts the cover letter, generates PDFs. The dashboard can't do that part itself (no API key baked in, nothing automated) — pasting into this terminal is the step that does it. Keep both windows open and switch between them as you go.
+This is the two-window model for the whole app: your **browser tab** is the dashboard — where you paste postings, review results, and organize applications (I just keep them side by side). Your **terminal** is where the actual AI work happens — Claude reads your resume, tailors it, drafts the cover letter, generates PDFs. The dashboard can't do that part itself (no API key baked in, nothing automated) — pasting into this terminal is the step that does it. Keep both windows open and switch between them as you go.
 
 If you added personal-project repos in step 3, ask Claude here now: *"sync my personal projects."*
 
 **5. Add a job posting.**
 
 - **In the browser:** paste the full posting text into "Screen a job posting." Include the job URL too if you have it — **strongly recommended, not required**: it's what lets you click straight back to the real listing from the dashboard later when you're ready to apply, instead of hunting for it again on LinkedIn or wherever you found it. Click **Copy prompt for Claude**.
-- **Switch to the terminal — this is the one point where you interact with it directly.** Paste, hit Enter. Claude reads the posting, rates the fit, and — for a strong or good match — tailors your resume and cover letter and generates both PDFs, all in that one terminal turn (usually well under a minute; you'll watch it happen).
+- **Switch to the terminal — this is the one point where you interact with it directly.** Paste, hit Enter. Claude reads the posting and rates the fit as strong, good, partial, or a stretch.
+  - **Strong or good match:** Claude keeps going in that same turn — tailors your resume and cover letter and generates both PDFs, no extra prompting needed (usually well under a minute; you'll watch it happen).
+  - **Partial match or a stretch:** Claude stops there instead of tailoring. It saves the posting and its fit rating/gaps to the dashboard (no resume or cover letter yet) and asks you, right in the terminal, whether to go ahead anyway. Say yes to continue immediately in that same turn, or decide later — the dashboard marks it "Screened only," and whenever you're ready you can just tell Claude *"fully tailor the `<Company>` application"* to pick up right where it left off.
 - **Switch back to the browser and refresh.** The new application is in the list.
 
 **6. Review it.** Click into the application and go through the tabs — Job Posting, Keyword Targeting, Resume, Cover Letter. Always read before sending anything out; nothing here is meant to go out unreviewed.
