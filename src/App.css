@@ -21,6 +21,220 @@
   margin: 0;
 }
 
+.header-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.settings-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-h);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.settings-button:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 60px 24px;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.settings-panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 480px;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.settings-close {
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.settings-close:hover {
+  color: var(--text-h);
+}
+
+.settings-field {
+  margin-bottom: 16px;
+}
+
+.settings-field label {
+  display: block;
+  font-weight: 600;
+  color: var(--text-h);
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.settings-field input[type='text'] {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  font: inherit;
+}
+
+.settings-field input[type='file'] {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.settings-hint {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.settings-save {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-save:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.settings-error {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--status-rejected);
+}
+
+.settings-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 20px 0;
+}
+
+.settings-repo-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.settings-repo-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.settings-repo-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.settings-repo-url {
+  font-size: 13px;
+  color: var(--text-h);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-repo-remove {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: none;
+  background: none;
+  color: var(--status-rejected);
+  cursor: pointer;
+}
+
+.settings-repo-remove:hover {
+  background: var(--status-rejected-bg);
+}
+
+.settings-repo-add {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-repo-add input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  font: inherit;
+}
+
+.settings-repo-add button {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-h);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.settings-repo-add button:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
 .check-listings {
   text-align: right;
   flex-shrink: 0;
@@ -30,7 +244,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
+  padding: 6px 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: none;

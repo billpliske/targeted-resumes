@@ -134,6 +134,37 @@ function readJsonBody(
   })
 }
 
+function readRawBody(
+  req: import('node:http').IncomingMessage,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = ''
+    req.on('data', (chunk) => {
+      body += chunk
+    })
+    req.on('end', () => resolve(body))
+    req.on('error', reject)
+  })
+}
+
+const settingsPath = path.resolve('public', 'settings.json')
+
+interface Settings {
+  name: string
+  resumeFilename: string
+  coverLetterFilename: string
+  personalProjectRepos: string[]
+}
+
+function readSettings(): Settings {
+  if (!existsSync(settingsPath)) {
+    return { name: '', resumeFilename: '', coverLetterFilename: '', personalProjectRepos: [] }
+  }
+  const parsed = JSON.parse(readFileSync(settingsPath, 'utf-8'))
+  // personalProjectRepos didn't exist in earlier settings.json files
+  return { personalProjectRepos: [], ...parsed }
+}
+
 function statusApiPlugin(): Plugin {
   return {
     name: 'status-api',
@@ -279,6 +310,106 @@ function checkListingPlugin(): Plugin {
   }
 }
 
+function settingsApiPlugin(): Plugin {
+  return {
+    name: 'settings-api',
+    configureServer(server) {
+      server.middlewares.use('/api/settings', (req, res) => {
+        if (req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json')
+          res.end(
+            JSON.stringify({
+              ...readSettings(),
+              // Computed server-side via existsSync rather than the client
+              // fetching these paths directly — Vite's dev server SPA
+              // fallback returns 200 for any unmatched path, so a plain
+              // fetch can't tell a missing file from index.html.
+              hasResume: existsSync(
+                path.resolve('public', 'original-resume.md'),
+              ),
+              hasCoverLetterTemplate: existsSync(
+                path.resolve('public', 'cover-letter-template.md'),
+              ),
+            }),
+          )
+          return
+        }
+
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+
+        readJsonBody(req)
+          .then(({ name, resumeFilename, coverLetterFilename, personalProjectRepos }) => {
+            if (
+              typeof name !== 'string' ||
+              typeof resumeFilename !== 'string' ||
+              typeof coverLetterFilename !== 'string' ||
+              !Array.isArray(personalProjectRepos) ||
+              !personalProjectRepos.every((repo) => typeof repo === 'string')
+            ) {
+              res.statusCode = 400
+              res.end('Invalid request')
+              return
+            }
+
+            const settings: Settings = {
+              name,
+              resumeFilename,
+              coverLetterFilename,
+              personalProjectRepos,
+            }
+            writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n')
+
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ ok: true }))
+          })
+          .catch(() => {
+            res.statusCode = 500
+            res.end('Server error')
+          })
+      })
+    },
+  }
+}
+
+// Writes a POSTed markdown body to a fixed file under public/. Used for the
+// resume and cover-letter-template uploads — both are plain markdown, no
+// parsing, so the raw request body is the file content as-is.
+function uploadTextFilePlugin(routePath: string, targetFile: string): Plugin {
+  const targetPath = path.resolve('public', targetFile)
+  return {
+    name: `upload-api${routePath}`,
+    configureServer(server) {
+      server.middlewares.use(routePath, (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+
+        readRawBody(req)
+          .then((text) => {
+            if (!text.trim()) {
+              res.statusCode = 400
+              res.end('Empty file')
+              return
+            }
+            writeFileSync(targetPath, text)
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ ok: true }))
+          })
+          .catch(() => {
+            res.statusCode = 500
+            res.end('Server error')
+          })
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -286,5 +417,11 @@ export default defineConfig({
     statusApiPlugin(),
     deleteApiPlugin(),
     checkListingPlugin(),
+    settingsApiPlugin(),
+    uploadTextFilePlugin('/api/upload-resume', 'original-resume.md'),
+    uploadTextFilePlugin(
+      '/api/upload-cover-letter-template',
+      'cover-letter-template.md',
+    ),
   ],
 })

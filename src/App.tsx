@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, Settings as SettingsIcon } from 'lucide-react'
 import type { Application, ApplicationStatus } from './types'
 import ApplicationList from './components/ApplicationList'
 import ApplicationDetail from './components/ApplicationDetail'
 import AddApplication from './components/AddApplication'
 import StatusSummary from './components/StatusSummary'
+import Settings from './components/Settings'
 import './App.css'
 
 interface CheckProgress {
@@ -26,6 +27,7 @@ function App() {
     null,
   )
   const [checkSummary, setCheckSummary] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   useEffect(() => {
     fetch('/applications-manifest.json')
@@ -154,28 +156,40 @@ function App() {
           <h1>Targeted Resumes</h1>
           <p>Tailored resumes and cover letters, organized by application.</p>
         </div>
-        {!selected && applications.length > 0 && (
-          <div className="check-listings">
-            <button
-              type="button"
-              className="check-listings-button"
-              onClick={handleCheckListings}
-              disabled={checkProgress !== null}
-            >
-              <RefreshCw
-                size={16}
-                className={checkProgress ? 'spin' : undefined}
-              />
-              {checkProgress
-                ? `Checking ${checkProgress.current} of ${checkProgress.total}…`
-                : 'Check listings'}
-            </button>
-            {checkSummary && (
-              <p className="check-listings-summary">{checkSummary}</p>
-            )}
-          </div>
-        )}
+        <div className="header-actions">
+          <button
+            type="button"
+            className="settings-button"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="Settings"
+          >
+            <SettingsIcon size={18} />
+          </button>
+          {!selected && applications.length > 0 && (
+            <div className="check-listings">
+              <button
+                type="button"
+                className="check-listings-button"
+                onClick={handleCheckListings}
+                disabled={checkProgress !== null}
+              >
+                <RefreshCw
+                  size={16}
+                  className={checkProgress ? 'spin' : undefined}
+                />
+                {checkProgress
+                  ? `Checking ${checkProgress.current} of ${checkProgress.total}…`
+                  : 'Check listings'}
+              </button>
+              {checkSummary && (
+                <p className="check-listings-summary">{checkSummary}</p>
+              )}
+            </div>
+          )}
+        </div>
       </header>
+
+      {settingsOpen && <Settings onClose={() => setSettingsOpen(false)} />}
 
       <main>
         {selected ? (
