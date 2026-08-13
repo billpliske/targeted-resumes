@@ -5,6 +5,7 @@ import MarkdownView from './MarkdownView'
 import KeywordCompare from './KeywordCompare'
 import StatusSelect from './StatusSelect'
 import FitBadge from './FitBadge'
+import Tooltip from './Tooltip'
 
 interface ApplicationDetailProps {
   application: Application
@@ -135,19 +136,21 @@ function ApplicationDetail({
               status={application.status}
               onChange={onStatusChange}
             />
-            <button
-              type="button"
-              className="delete-button"
-              aria-label={`Delete ${application.role} at ${application.company}`}
-              onClick={() =>
-                onDelete(
-                  application.id,
-                  `${application.role} at ${application.company}`,
-                )
-              }
-            >
-              <Trash2 size={16} />
-            </button>
+            <Tooltip label="Permanently deletes this application's resume, cover letter, and job posting files">
+              <button
+                type="button"
+                className="delete-button"
+                aria-label={`Delete ${application.role} at ${application.company}`}
+                onClick={() =>
+                  onDelete(
+                    application.id,
+                    `${application.role} at ${application.company}`,
+                  )
+                }
+              >
+                <Trash2 size={16} />
+              </button>
+            </Tooltip>
           </div>
         </div>
         <p className="detail-subhead">
@@ -218,13 +221,15 @@ function ApplicationDetail({
       {activeTab === 'resume' && application.resumePdf && (
         <section className="detail-section">
           <div className="detail-section-heading">
-            <button
-              type="button"
-              className="reveal-button"
-              onClick={() => handleReveal('resume')}
-            >
-              {revealButtonLabel()}
-            </button>
+            <Tooltip label="Opens your file manager with this exact PDF selected, in its real application folder">
+              <button
+                type="button"
+                className="reveal-button"
+                onClick={() => handleReveal('resume')}
+              >
+                {revealButtonLabel()}
+              </button>
+            </Tooltip>
             <a
               href={`${baseUrl}/${application.resumePdf}`}
               download={withCompanySuffix(application.resumePdf, application.company)}
@@ -244,13 +249,15 @@ function ApplicationDetail({
       {activeTab === 'coverLetter' && application.coverLetterPdf && (
         <section className="detail-section">
           <div className="detail-section-heading">
-            <button
-              type="button"
-              className="reveal-button"
-              onClick={() => handleReveal('coverLetter')}
-            >
-              {revealButtonLabel()}
-            </button>
+            <Tooltip label="Opens your file manager with this exact PDF selected, in its real application folder">
+              <button
+                type="button"
+                className="reveal-button"
+                onClick={() => handleReveal('coverLetter')}
+              >
+                {revealButtonLabel()}
+              </button>
+            </Tooltip>
             <a
               href={`${baseUrl}/${application.coverLetterPdf}`}
               download={withCompanySuffix(application.coverLetterPdf, application.company)}

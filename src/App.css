@@ -838,3 +838,35 @@
   font-size: 14px;
   line-height: 1.6;
 }
+
+.tooltip-content {
+  max-width: 260px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--text-h);
+  color: var(--bg);
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  z-index: 200;
+  animation: tooltip-fade-in 120ms ease-out;
+}
+
+.tooltip-content[data-state='delayed-open'] {
+  animation: tooltip-fade-in 120ms ease-out;
+}
+
+@keyframes tooltip-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tooltip-arrow {
+  fill: var(--text-h);
+}

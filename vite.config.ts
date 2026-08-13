@@ -2,7 +2,7 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
 import { readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs'
-import { execFile } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 // @ts-expect-error -- plain JS script, no type declarations
 import { buildManifest } from './scripts/build-manifest.mjs'
 
@@ -255,6 +255,25 @@ function deleteApiPlugin(): Plugin {
   }
 }
 
+// Nautilus (GNOME) and Dolphin (KDE) both have a documented `--select`
+// flag for highlighting a specific file, covering the two most common
+// Linux desktops. No other file manager (Nemo, Thunar, PCManFM, ...) has
+// a verified equivalent, so those fall back to opening the containing
+// folder via xdg-open instead of guessing a flag that might not exist.
+const LINUX_SELECT_CAPABLE_FILE_MANAGERS = ['nautilus', 'dolphin']
+
+function detectLinuxFileManager(): string | null {
+  for (const binary of LINUX_SELECT_CAPABLE_FILE_MANAGERS) {
+    try {
+      execFileSync('which', [binary], { stdio: 'ignore' })
+      return binary
+    } catch {
+      // not found on PATH, try the next one
+    }
+  }
+  return null
+}
+
 function revealFilePlugin(): Plugin {
   return {
     name: 'reveal-file-api',
@@ -304,10 +323,16 @@ function revealFilePlugin(): Plugin {
               command = 'explorer'
               args = [`/select,${filePath}`]
             } else {
-              // No universal "select this file" command on Linux — best
-              // effort is opening the containing folder.
-              command = 'xdg-open'
-              args = [dir]
+              const linuxFileManager = detectLinuxFileManager()
+              if (linuxFileManager) {
+                command = linuxFileManager
+                args = ['--select', filePath]
+              } else {
+                // No verified "select this file" flag for whatever's
+                // installed — best effort is opening the containing folder.
+                command = 'xdg-open'
+                args = [dir]
+              }
             }
 
             execFile(command, args, (err) => {

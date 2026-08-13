@@ -8,6 +8,7 @@ import {
 } from '../types'
 import StatusSelect from './StatusSelect'
 import FitBadge from './FitBadge'
+import Tooltip from './Tooltip'
 
 interface ApplicationListProps {
   applications: Application[]
@@ -144,17 +145,19 @@ function ApplicationList({
                   status={app.status}
                   onChange={onStatusChange}
                 />
-                <button
-                  type="button"
-                  className="delete-button"
-                  aria-label={`Delete ${app.role} at ${app.company}`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDelete(app.id, `${app.role} at ${app.company}`)
-                  }}
-                >
-                  <Trash2 size={16} />
-                </button>
+                <Tooltip label="Permanently deletes this application's resume, cover letter, and job posting files">
+                  <button
+                    type="button"
+                    className="delete-button"
+                    aria-label={`Delete ${app.role} at ${app.company}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete(app.id, `${app.role} at ${app.company}`)
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </Tooltip>
               </div>
             </li>
           ))}

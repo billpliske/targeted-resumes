@@ -6,6 +6,7 @@ import ApplicationDetail from './components/ApplicationDetail'
 import AddApplication from './components/AddApplication'
 import StatusSummary from './components/StatusSummary'
 import Settings from './components/Settings'
+import Tooltip from './components/Tooltip'
 import './App.css'
 
 interface CheckProgress {
@@ -157,30 +158,34 @@ function App() {
           <p>Tailored resumes and cover letters, organized by application.</p>
         </div>
         <div className="header-actions">
-          <button
-            type="button"
-            className="settings-button"
-            onClick={() => setSettingsOpen(true)}
-            aria-label="Settings"
-          >
-            <SettingsIcon size={18} />
-          </button>
+          <Tooltip label="Settings — your name, PDF filenames, resume source, and personal project repos">
+            <button
+              type="button"
+              className="settings-button"
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Settings"
+            >
+              <SettingsIcon size={18} />
+            </button>
+          </Tooltip>
           {!selected && applications.length > 0 && (
             <div className="check-listings">
-              <button
-                type="button"
-                className="check-listings-button"
-                onClick={handleCheckListings}
-                disabled={checkProgress !== null}
-              >
-                <RefreshCw
-                  size={16}
-                  className={checkProgress ? 'spin' : undefined}
-                />
-                {checkProgress
-                  ? `Checking ${checkProgress.current} of ${checkProgress.total}…`
-                  : 'Check listings'}
-              </button>
+              <Tooltip label="Checks every application's job URL for signs it's closed or removed (a dead link, or wording like 'no longer accepting applications') and marks matches as Filled">
+                <button
+                  type="button"
+                  className="check-listings-button"
+                  onClick={handleCheckListings}
+                  disabled={checkProgress !== null}
+                >
+                  <RefreshCw
+                    size={16}
+                    className={checkProgress ? 'spin' : undefined}
+                  />
+                  {checkProgress
+                    ? `Checking ${checkProgress.current} of ${checkProgress.total}…`
+                    : 'Check listings'}
+                </button>
+              </Tooltip>
               {checkSummary && (
                 <p className="check-listings-summary">{checkSummary}</p>
               )}

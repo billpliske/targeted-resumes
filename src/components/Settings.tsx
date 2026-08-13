@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Trash2 } from 'lucide-react'
+import Tooltip from './Tooltip'
 
 interface SettingsData {
   name: string
@@ -238,14 +239,16 @@ function Settings({ onClose }: SettingsProps) {
                   {settings.personalProjectRepos.map((repo) => (
                     <li key={repo}>
                       <span className="settings-repo-url">{repo}</span>
-                      <button
-                        type="button"
-                        className="settings-repo-remove"
-                        onClick={() => handleRemoveRepo(repo)}
-                        aria-label={`Remove ${repo}`}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <Tooltip label="Stops this repo being synced — doesn't touch anything on GitHub">
+                        <button
+                          type="button"
+                          className="settings-repo-remove"
+                          onClick={() => handleRemoveRepo(repo)}
+                          aria-label={`Remove ${repo}`}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </Tooltip>
                     </li>
                   ))}
                 </ul>
