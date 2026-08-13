@@ -31,7 +31,7 @@ Fast triage path: saves a lightweight entry to the dashboard (job posting + fit 
      "id": "<id>",
      "company": "<company>",
      "role": "<role>",
-     "dateAdded": "<YYYY-MM-DDTHH:MM:SS>",
+     "dateAdded": "<YYYY-MM-DDTHH:MM:SS — run `date +%Y-%m-%dT%H:%M:%S` for the real current timestamp; the list sorts by this field, so a placeholder like midnight will sort it out of order against entries added earlier the same day>",
      "jobUrl": "<url or omit if pasted>",
      "jobPostingSource": "url | pasted",
      "location": "<location, if known>",
