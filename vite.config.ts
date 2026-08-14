@@ -113,10 +113,23 @@ async function classifyListing(
   // Ashby only embeds the schema.org JobPosting JSON-LD block server-side
   // when the job ID actually resolves to a live listing — confirmed absent
   // for a garbage/removed job ID across 3 real orgs (GC AI, Kong, Deepgram).
-  if (
-    response.url.includes('ashbyhq.com') &&
-    !html.includes('"@type":"JobPosting"')
-  ) {
+  // That's only true for the canonical jobs.ashbyhq.com/<org>/<id> board
+  // pages, though. The ?ashby_jid=<id> query-param embed style — used both
+  // on ashbyhq.com's own generic careers page and on companies' custom
+  // domains embedding an Ashby widget — is client-rendered and never
+  // includes the schema block server-side, live or closed, so applying
+  // this check there produces a false "filled" every time.
+  let isAshbyOrgBoard = false
+  try {
+    const parsedUrl = new URL(response.url)
+    isAshbyOrgBoard =
+      parsedUrl.hostname === 'jobs.ashbyhq.com' &&
+      !parsedUrl.searchParams.has('ashby_jid')
+  } catch {
+    isAshbyOrgBoard = false
+  }
+
+  if (isAshbyOrgBoard && !html.includes('"@type":"JobPosting"')) {
     return { outcome: 'filled', httpStatus: response.status }
   }
 
