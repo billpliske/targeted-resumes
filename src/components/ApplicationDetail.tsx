@@ -14,9 +14,9 @@ interface ApplicationDetailProps {
   onDelete: (id: string, label: string) => void
 }
 
-type DocKey = 'jobPosting' | 'resume' | 'coverLetter' | 'originalResume'
+type DocKey = 'jobPosting' | 'resume' | 'coverLetter' | 'originalResume' | 'interest'
 
-type TabKey = 'posting' | 'keywords' | 'resume' | 'coverLetter'
+type TabKey = 'posting' | 'keywords' | 'resume' | 'coverLetter' | 'interest'
 
 // The on-disk filename is the same for every application (from Settings),
 // so a plain download would collide/overwrite across companies in the
@@ -50,6 +50,7 @@ function ApplicationDetail({
     resume: null,
     coverLetter: null,
     originalResume: null,
+    interest: null,
   })
   const [activeTab, setActiveTab] = useState<TabKey>('posting')
   const [revealError, setRevealError] = useState<string | null>(null)
@@ -83,6 +84,9 @@ function ApplicationDetail({
       files.resume = `${baseUrl}/${application.resumeFile}`
       files.coverLetter = `${baseUrl}/${application.coverLetterFile}`
       files.originalResume = '/original-resume.md'
+    }
+    if (application.interestFile) {
+      files.interest = `${baseUrl}/${application.interestFile}`
     }
 
     Object.entries(files).forEach(([key, url]) => {
@@ -118,6 +122,9 @@ function ApplicationDetail({
           { key: 'resume' as TabKey, label: 'Resume' },
           { key: 'coverLetter' as TabKey, label: 'Cover letter' },
         ]
+      : []),
+    ...(application.interestFile
+      ? [{ key: 'interest' as TabKey, label: 'Interest' }]
       : []),
   ]
 
@@ -268,6 +275,20 @@ function ApplicationDetail({
           {revealError && <p className="settings-error">{revealError}</p>}
           {docs.coverLetter ? (
             <MarkdownView content={docs.coverLetter} />
+          ) : (
+            <p>Loading…</p>
+          )}
+        </section>
+      )}
+
+      {activeTab === 'interest' && application.interestFile && (
+        <section className="detail-section">
+          <p className="detail-hint">
+            A ready-to-paste answer for "Why are you interested in working
+            for our company?"-style application questions.
+          </p>
+          {docs.interest ? (
+            <MarkdownView content={docs.interest} />
           ) : (
             <p>Loading…</p>
           )}

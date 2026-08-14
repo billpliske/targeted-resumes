@@ -54,4 +54,5 @@ export interface Application {
   resumePdf?: string
   coverLetterFile?: string
   coverLetterPdf?: string
+  interestFile?: string
 }
