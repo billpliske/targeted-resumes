@@ -1,6 +1,6 @@
 # Targeted Resumes
 
-**v1.0.0**
+**v1.0.4**
 
 A tool for tailoring a resume and cover letter to individual job postings, without inventing experience the applicant doesn't have — and keeping every version organized in one place.
 
