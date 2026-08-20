@@ -47,16 +47,22 @@ function App() {
   const [repoUrl, setRepoUrl] = useState<string | null>(null)
   const [authChecked, setAuthChecked] = useState(!isCloudMode)
   const [signedInEmail, setSignedInEmail] = useState<string | null>(null)
+  const [authError, setAuthError] = useState<string | null>(null)
   const [pendingSyncCount, setPendingSyncCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
   const [syncSummary, setSyncSummary] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isCloudMode) return
-    getSignedInEmail().then((email) => {
-      setSignedInEmail(email)
-      setAuthChecked(true)
-    })
+    getSignedInEmail()
+      .then((email) => {
+        setSignedInEmail(email)
+        setAuthChecked(true)
+      })
+      .catch((err) => {
+        setAuthError(err instanceof Error ? err.message : 'Could not reach the cloud backend')
+        setAuthChecked(true)
+      })
   }, [])
 
   useEffect(() => {
@@ -205,6 +211,16 @@ function App() {
   const selected = applications.find((app) => app.id === selectedId) ?? null
 
   if (isCloudMode && !authChecked) return null
+  if (isCloudMode && authError) {
+    return (
+      <div className="login-shell">
+        <div className="login-panel">
+          <h1>Targeted Resumes</h1>
+          <p className="settings-error">{authError}</p>
+        </div>
+      </div>
+    )
+  }
   if (isCloudMode && !signedInEmail) {
     return <Login onSignedIn={() => getSignedInEmail().then(setSignedInEmail)} />
   }

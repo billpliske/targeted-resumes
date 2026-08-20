@@ -2,6 +2,10 @@
 
 Notable changes to this app, listed by version. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.2.1
+
+- Fixed cloud mode silently showing a blank page instead of the login screen when `public/amplify_outputs.json` is missing or the backend can't be reached — now shows a clear error message instead.
+
 ## 1.2.0
 
 - Added an optional cloud-backed mode (AWS Amplify + Cognito) for personal use: log in and see the same applications across multiple machines. Off by default — forking the repo and running it locally still works exactly as before, with zero new dependencies or setup required. Enabling it requires standing up your own AWS backend; it's not something a plain fork gets automatically.
