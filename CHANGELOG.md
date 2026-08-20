@@ -2,6 +2,11 @@
 
 Notable changes to this app, listed by version. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.3.2
+
+- Fixed "Sync" crashing with a raw "not valid JSON" error on a fresh machine with no local applications yet. A missing static file (`applications-manifest.json`, `amplify_outputs.json`) returns Vite's `index.html` app shell with a `200 OK` instead of a clean 404 — the code only checked the status, then tried to parse that HTML as JSON.
+- Fixed a real gap in cloud sync: updating an application that already exists on both sides (e.g. Claude Code promoting a "screened only" entry to fully tailored) never pushed the change to the cloud — sync only handled "exists here but not there" cases. It now detects and pushes content updates too, without ever touching `status` (which only ever changes via the app itself, directly against the cloud) — so this can't undo a status change made from a different machine.
+
 ## 1.3.1
 
 - Fixed "Sync now" silently showing "Up to date" (and staying disabled) when it actually failed to check sync status — it now shows a clear "Sync error" state with the real error message instead of hiding the failure.

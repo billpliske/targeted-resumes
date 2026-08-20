@@ -28,7 +28,13 @@ export const localAdapter: StorageAdapter = {
   async listApplications() {
     const res = await fetch('/applications-manifest.json')
     if (!res.ok) return []
-    return (await res.json()) as Application[]
+    try {
+      return (await res.json()) as Application[]
+    } catch {
+      // A missing static file 200s into Vite's SPA index.html fallback
+      // rather than a clean 404 — no manifest yet just means no apps yet.
+      return []
+    }
   },
 
   async getDocument(application, kind) {

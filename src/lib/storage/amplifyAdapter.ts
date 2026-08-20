@@ -69,18 +69,64 @@ function mapRecord(r: Schema['Application']['type']): Application {
 
 async function getLocalApplications(): Promise<Application[]> {
   const res = await fetch('/applications-manifest.json')
-  return res.ok ? res.json() : []
+  if (!res.ok) return []
+  try {
+    return await res.json()
+  } catch {
+    // A missing static file 200s into Vite's SPA index.html fallback
+    // rather than a clean 404 — no manifest yet just means no apps yet.
+    return []
+  }
 }
 
-async function diffLocalAndCloud(): Promise<{ localOnly: Application[]; cloudOnly: Application[] }> {
+// Fields Claude Code's skills actually own — deliberately excludes `status`
+// (set only via the UI, directly against the cloud, never written back to
+// local files) and `dateAdded` (format-only differences after a round-trip
+// through AppSync — see syncOneApplication). Comparing this fingerprint is
+// what lets a local promotion (e.g. tailored: false -> true) push an update
+// to a record that already exists in the cloud, without ever clobbering a
+// status change made from a different machine.
+function contentFingerprint(app: Application): string {
+  return JSON.stringify({
+    company: app.company,
+    role: app.role,
+    jobUrl: app.jobUrl ?? null,
+    jobPostingSource: app.jobPostingSource,
+    location: app.location ?? null,
+    keywords: app.keywords ?? [],
+    fitRating: app.fitRating ?? null,
+    fitSummary: app.fitSummary ?? null,
+    tailored: app.tailored,
+    jobPostingFile: app.jobPostingFile,
+    resumeFile: app.resumeFile ?? null,
+    resumePdf: app.resumePdf ?? null,
+    coverLetterFile: app.coverLetterFile ?? null,
+    coverLetterPdf: app.coverLetterPdf ?? null,
+    interestFile: app.interestFile ?? null,
+  })
+}
+
+async function diffLocalAndCloud(): Promise<{
+  localOnly: Application[]
+  cloudOnly: Application[]
+  updated: Application[]
+}> {
   const [localApps, c] = [await getLocalApplications(), await getClient()]
   const { data } = await c.models.Application.list()
   const cloudApps = data.map(mapRecord)
   const localIds = new Set(localApps.map((a) => a.id))
-  const cloudIds = new Set(cloudApps.map((a) => a.id))
+  const cloudById = new Map(cloudApps.map((a) => [a.id, a]))
+  const updated: Application[] = []
+  for (const localApp of localApps) {
+    const cloudApp = cloudById.get(localApp.id)
+    if (cloudApp && contentFingerprint(localApp) !== contentFingerprint(cloudApp)) {
+      updated.push(localApp)
+    }
+  }
   return {
-    localOnly: localApps.filter((app) => !cloudIds.has(app.id)),
+    localOnly: localApps.filter((app) => !cloudById.has(app.id)),
     cloudOnly: cloudApps.filter((app) => !localIds.has(app.id)),
+    updated,
   }
 }
 
@@ -95,8 +141,7 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return btoa(binary)
 }
 
-async function syncOneApplication(app: Application) {
-  const c = await getClient()
+async function uploadApplicationFiles(app: Application) {
   const files: { filename: string; contentType: string }[] = [
     { filename: app.jobPostingFile, contentType: 'text/markdown' },
   ]
@@ -122,6 +167,11 @@ async function syncOneApplication(app: Application) {
       options: { contentType: file.contentType },
     }).result
   }
+}
+
+async function syncOneApplication(app: Application) {
+  const c = await getClient()
+  await uploadApplicationFiles(app)
 
   const { errors } = await c.models.Application.create({
     applicationId: app.id,
@@ -136,6 +186,34 @@ async function syncOneApplication(app: Application) {
     location: app.location,
     keywords: app.keywords,
     status: app.status,
+    fitRating: app.fitRating,
+    fitSummary: app.fitSummary,
+    tailored: app.tailored,
+    jobPostingFile: app.jobPostingFile,
+    resumeFile: app.resumeFile,
+    resumePdf: app.resumePdf,
+    coverLetterFile: app.coverLetterFile,
+    coverLetterPdf: app.coverLetterPdf,
+    interestFile: app.interestFile,
+  })
+  if (errors) throw new Error(errors.map((e) => e.message).join('; '))
+}
+
+// Deliberately omits `status` and `dateAdded` from the payload — those are
+// never sourced from local files (see contentFingerprint), so leaving them
+// out of the update means Amplify Data just doesn't touch them.
+async function pushApplicationUpdate(app: Application) {
+  const c = await getClient()
+  await uploadApplicationFiles(app)
+
+  const { errors } = await c.models.Application.update({
+    applicationId: app.id,
+    company: app.company,
+    role: app.role,
+    jobUrl: app.jobUrl,
+    jobPostingSource: app.jobPostingSource,
+    location: app.location,
+    keywords: app.keywords,
     fitRating: app.fitRating,
     fitSummary: app.fitSummary,
     tailored: app.tailored,
@@ -323,12 +401,12 @@ export const amplifyAdapter: StorageAdapter = {
   supportsSync: true,
   async getPendingSyncCount() {
     await ensureAmplifyConfigured()
-    const { localOnly, cloudOnly } = await diffLocalAndCloud()
-    return localOnly.length + cloudOnly.length
+    const { localOnly, cloudOnly, updated } = await diffLocalAndCloud()
+    return localOnly.length + cloudOnly.length + updated.length
   },
   async sync() {
     await ensureAmplifyConfigured()
-    const { localOnly, cloudOnly } = await diffLocalAndCloud()
+    const { localOnly, cloudOnly, updated } = await diffLocalAndCloud()
     let pushed = 0
     let pulled = 0
     const failed: { id: string; error: string }[] = []
@@ -339,6 +417,14 @@ export const amplifyAdapter: StorageAdapter = {
         pushed++
       } catch (err) {
         failed.push({ id: app.id, error: err instanceof Error ? err.message : 'Push failed' })
+      }
+    }
+    for (const app of updated) {
+      try {
+        await pushApplicationUpdate(app)
+        pushed++
+      } catch (err) {
+        failed.push({ id: app.id, error: err instanceof Error ? err.message : 'Update failed' })
       }
     }
     for (const app of cloudOnly) {

@@ -9,7 +9,10 @@ export function ensureAmplifyConfigured(): Promise<void> {
   if (!configured) {
     configured = fetch('/amplify_outputs.json')
       .then((res) => {
-        if (!res.ok) {
+        // A missing static file 200s into Vite's SPA index.html fallback
+        // rather than a clean 404 — content-type is the reliable signal.
+        const contentType = res.headers.get('content-type') ?? ''
+        if (!res.ok || !contentType.includes('application/json')) {
           throw new Error(
             'Cloud storage mode is enabled but public/amplify_outputs.json was not found. Run `npx ampx sandbox --once --outputs-out-dir public` first.',
           )
