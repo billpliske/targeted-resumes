@@ -33,3 +33,7 @@ public/personal-projects-skills.md
 
 # Working build log — job-search specifics, not documentation for forks
 tasks/todo.md
+
+# Amplify sandbox output — personal AWS endpoint config, not for forkers
+amplify_outputs.json
+.amplify/

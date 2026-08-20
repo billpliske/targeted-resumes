@@ -19,7 +19,7 @@ Fast triage path: saves a lightweight entry to the dashboard (job posting + fit 
 
 3. **Create the application folder.** Same id scheme as `add-application`: `<YYYY-MM-DD>-<company-slug>-<role-slug>` under `public/applications/`.
 
-4. **Save the job posting.** Write `public/applications/<id>/job-posting.md` (source URL at top if given, then the cleaned posting text) — same as `add-application` step 5.
+4. **Save the job posting.** Write `public/applications/<id>/job-posting.md` (source URL at top if given, then the cleaned posting text) — same as `add-application` step 5. If the posting lists a salary/compensation figure, add a `Compensation:` line right under the location/remote-status line near the top, in addition to leaving it wherever it appears further down (e.g. alongside benefits) — don't move it, just also surface it up top so it's visible without scrolling.
 
 5. **Assess the fit.** Read `public/original-resume.md` and compare it against the posting directly (no need for the `writer` subagent here — this is analysis, not resume writing). Write:
    - `fitRating`: `strong`, `good`, `partial`, or `stretch` — be honest, not encouraging. A `stretch` rating that saves the user from reapplying to a bad-fit posting is the whole point of this skill.

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { RefreshCw, Settings as SettingsIcon } from 'lucide-react'
+import { KeyRound, LogOut, RefreshCw, Settings as SettingsIcon, UploadCloud } from 'lucide-react'
 import type { Application, ApplicationStatus } from './types'
 import ApplicationList from './components/ApplicationList'
 import ApplicationDetail from './components/ApplicationDetail'
@@ -7,15 +7,15 @@ import AddApplication from './components/AddApplication'
 import StatusSummary from './components/StatusSummary'
 import Settings from './components/Settings'
 import Tooltip from './components/Tooltip'
+import Login from './components/Login'
+import ChangePassword from './components/ChangePassword'
+import { getSignedInEmail, logout } from './lib/auth'
+import { isCloudMode, storage } from './lib/storage'
 import './App.css'
 
 interface CheckProgress {
   current: number
   total: number
-}
-
-interface CheckListingResponse {
-  outcome: 'broken' | 'filled' | 'inconclusive'
 }
 
 // Simple major.minor.patch comparison — deliberately not a blind
@@ -42,8 +42,22 @@ function App() {
   )
   const [checkSummary, setCheckSummary] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false)
   const [latestVersion, setLatestVersion] = useState<string | null>(null)
   const [repoUrl, setRepoUrl] = useState<string | null>(null)
+  const [authChecked, setAuthChecked] = useState(!isCloudMode)
+  const [signedInEmail, setSignedInEmail] = useState<string | null>(null)
+  const [pendingSyncCount, setPendingSyncCount] = useState(0)
+  const [syncing, setSyncing] = useState(false)
+  const [syncSummary, setSyncSummary] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isCloudMode) return
+    getSignedInEmail().then((email) => {
+      setSignedInEmail(email)
+      setAuthChecked(true)
+    })
+  }, [])
 
   useEffect(() => {
     fetch('/api/latest-version')
@@ -56,11 +70,40 @@ function App() {
   }, [])
 
   useEffect(() => {
-    fetch('/applications-manifest.json')
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: Application[]) => setApplications(data))
+    if (isCloudMode && !signedInEmail) return
+    storage
+      .listApplications()
+      .then((data) => setApplications(data))
       .catch(() => setApplications([]))
-  }, [])
+    if (storage.supportsSync) {
+      storage.getPendingSyncCount().then(setPendingSyncCount)
+    }
+  }, [signedInEmail])
+
+  async function handleSync() {
+    setSyncing(true)
+    setSyncSummary(null)
+    try {
+      const result = await storage.syncFromLocal()
+      if (result.added > 0) {
+        storage.listApplications().then(setApplications)
+      }
+      const failedNote =
+        result.failed.length > 0
+          ? ` — ${result.failed.length} failed (${result.failed.map((f) => f.id).join(', ')})`
+          : ''
+      setSyncSummary(
+        result.added === 0 && result.failed.length === 0
+          ? 'Nothing new to sync.'
+          : `Synced ${result.added} application${result.added === 1 ? '' : 's'}${failedNote}.`,
+      )
+      setPendingSyncCount(await storage.getPendingSyncCount())
+    } catch {
+      setSyncSummary("Couldn't sync. Please try again.")
+    }
+    setSyncing(false)
+    setTimeout(() => setSyncSummary(null), 8000)
+  }
 
   async function handleStatusChange(id: string, status: ApplicationStatus) {
     const previous = applications
@@ -69,40 +112,32 @@ function App() {
     )
 
     try {
-      const res = await fetch('/api/status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status }),
-      })
-      if (!res.ok) throw new Error('Request failed')
+      await storage.updateStatus(id, status)
     } catch {
       setApplications(previous)
-      alert(
-        "Couldn't save that status change. Make sure `npm run dev` is running, then try again.",
-      )
+      alert("Couldn't save that status change. Please try again.")
     }
   }
 
   async function handleDelete(id: string, label: string) {
     const confirmed = window.confirm(
-      `Delete "${label}"? This permanently removes its resume, cover letter, and job posting files from disk. This can't be undone.`,
+      `Delete "${label}"? This permanently removes its resume, cover letter, and job posting files. This can't be undone.`,
     )
     if (!confirmed) return
 
     try {
-      const res = await fetch('/api/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      })
-      if (!res.ok) throw new Error('Request failed')
+      await storage.deleteApplication(id)
       setApplications((apps) => apps.filter((app) => app.id !== id))
       setSelectedId((current) => (current === id ? null : current))
     } catch {
-      alert(
-        "Couldn't delete that application. Make sure `npm run dev` is running, then try again.",
-      )
+      alert("Couldn't delete that application. Please try again.")
     }
+  }
+
+  async function handleSignOut() {
+    await logout()
+    setSignedInEmail(null)
+    setApplications([])
   }
 
   async function handleCheckListings() {
@@ -124,13 +159,7 @@ function App() {
       setCheckProgress({ current: i + 1, total: eligible.length })
 
       try {
-        const res = await fetch('/api/check-listing', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: app.id }),
-        })
-        if (!res.ok) throw new Error('Request failed')
-        const data: CheckListingResponse = await res.json()
+        const data = await storage.checkListing(app.id)
 
         if (data.outcome === 'filled' || data.outcome === 'broken') {
           if (data.outcome === 'filled') filledCount++
@@ -175,6 +204,11 @@ function App() {
 
   const selected = applications.find((app) => app.id === selectedId) ?? null
 
+  if (isCloudMode && !authChecked) return null
+  if (isCloudMode && !signedInEmail) {
+    return <Login onSignedIn={() => getSignedInEmail().then(setSignedInEmail)} />
+  }
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -207,7 +241,27 @@ function App() {
               <SettingsIcon size={18} />
             </button>
           </Tooltip>
-          {!selected && applications.length > 0 && (
+          {!selected && storage.supportsSync && (
+            <div className="check-listings">
+              <Tooltip label="Pushes applications created locally by Claude Code up to the cloud so they show up on your other devices">
+                <button
+                  type="button"
+                  className="check-listings-button"
+                  onClick={handleSync}
+                  disabled={syncing || pendingSyncCount === 0}
+                >
+                  <UploadCloud size={16} />
+                  {syncing
+                    ? 'Syncing…'
+                    : pendingSyncCount > 0
+                      ? `Sync now (${pendingSyncCount})`
+                      : 'Up to date'}
+                </button>
+              </Tooltip>
+              {syncSummary && <p className="check-listings-summary">{syncSummary}</p>}
+            </div>
+          )}
+          {!selected && applications.length > 0 && storage.supportsListingCheck && (
             <div className="check-listings">
               <Tooltip label="Checks every application's job URL for signs it's closed or removed (a dead link, or wording like 'no longer accepting applications') and marks matches as Filled">
                 <button
@@ -230,10 +284,37 @@ function App() {
               )}
             </div>
           )}
+          {isCloudMode && (
+            <Tooltip label="Change password">
+              <button
+                type="button"
+                className="settings-button"
+                onClick={() => setChangePasswordOpen(true)}
+                aria-label="Change password"
+              >
+                <KeyRound size={18} />
+              </button>
+            </Tooltip>
+          )}
+          {isCloudMode && (
+            <Tooltip label={`Signed in as ${signedInEmail} — sign out`}>
+              <button
+                type="button"
+                className="settings-button"
+                onClick={handleSignOut}
+                aria-label="Sign out"
+              >
+                <LogOut size={18} />
+              </button>
+            </Tooltip>
+          )}
         </div>
       </header>
 
       {settingsOpen && <Settings onClose={() => setSettingsOpen(false)} />}
+      {changePasswordOpen && (
+        <ChangePassword onClose={() => setChangePasswordOpen(false)} />
+      )}
 
       <main>
         {selected ? (

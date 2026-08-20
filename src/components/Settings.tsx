@@ -1,25 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Trash2 } from 'lucide-react'
+import { storage } from '../lib/storage'
+import type { SettingsData } from '../lib/storage'
 import Tooltip from './Tooltip'
-
-interface ManualProject {
-  name: string
-  description: string
-  details: string
-}
-
-interface SettingsData {
-  name: string
-  resumeFilename: string
-  coverLetterFilename: string
-  personalProjectRepos: string[]
-  manualProjects: ManualProject[]
-}
-
-interface SettingsResponse extends SettingsData {
-  hasResume: boolean
-  hasCoverLetterTemplate: boolean
-}
 
 interface SettingsProps {
   onClose: () => void
@@ -31,16 +14,6 @@ const EMPTY_SETTINGS: SettingsData = {
   coverLetterFilename: '',
   personalProjectRepos: [],
   manualProjects: [],
-}
-
-async function uploadMarkdownFile(endpoint: string, file: File) {
-  const text = await file.text()
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/markdown' },
-    body: text,
-  })
-  if (!res.ok) throw new Error('Upload failed')
 }
 
 function Settings({ onClose }: SettingsProps) {
@@ -58,13 +31,9 @@ function Settings({ onClose }: SettingsProps) {
   const coverLetterInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    fetch('/api/settings')
-      .then((res) =>
-        res.ok
-          ? res.json()
-          : { ...EMPTY_SETTINGS, hasResume: false, hasCoverLetterTemplate: false },
-      )
-      .then((data: SettingsResponse) => {
+    storage
+      .getSettings()
+      .then((data) => {
         setSettings({
           name: data.name,
           resumeFilename: data.resumeFilename,
@@ -82,12 +51,7 @@ function Settings({ onClose }: SettingsProps) {
   async function handleSave() {
     setSaveState('saving')
     try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-      })
-      if (!res.ok) throw new Error('Request failed')
+      await storage.saveSettings(settings)
       setSaveState('saved')
       setTimeout(() => setSaveState('idle'), 3000)
     } catch {
@@ -139,20 +103,20 @@ function Settings({ onClose }: SettingsProps) {
   async function handleResumeUpload(file: File) {
     setUploadError(null)
     try {
-      await uploadMarkdownFile('/api/upload-resume', file)
+      await storage.uploadResume(file)
       setHasResume(true)
     } catch {
-      setUploadError("Couldn't upload the resume. Make sure `npm run dev` is running, then try again.")
+      setUploadError("Couldn't upload the resume. Please try again.")
     }
   }
 
   async function handleCoverLetterUpload(file: File) {
     setUploadError(null)
     try {
-      await uploadMarkdownFile('/api/upload-cover-letter-template', file)
+      await storage.uploadCoverLetterTemplate(file)
       setHasCoverLetterTemplate(true)
     } catch {
-      setUploadError("Couldn't upload the cover letter template. Make sure `npm run dev` is running, then try again.")
+      setUploadError("Couldn't upload the cover letter template. Please try again.")
     }
   }
 
@@ -376,7 +340,7 @@ function Settings({ onClose }: SettingsProps) {
               {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved ✓' : 'Save'}
             </button>
             {saveState === 'error' && (
-              <p className="settings-error">Couldn't save. Make sure `npm run dev` is running, then try again.</p>
+              <p className="settings-error">Couldn't save. Please try again.</p>
             )}
           </div>
         )}

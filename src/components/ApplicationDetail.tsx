@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import type { Application, ApplicationStatus } from '../types'
+import { storage } from '../lib/storage'
 import MarkdownView from './MarkdownView'
 import KeywordCompare from './KeywordCompare'
 import StatusSelect from './StatusSelect'
@@ -52,65 +53,67 @@ function ApplicationDetail({
     originalResume: null,
     interest: null,
   })
+  const [downloadUrls, setDownloadUrls] = useState<{
+    resume: string | null
+    coverLetter: string | null
+  }>({ resume: null, coverLetter: null })
   const [activeTab, setActiveTab] = useState<TabKey>('posting')
   const [revealError, setRevealError] = useState<string | null>(null)
 
-  const baseUrl = `/applications/${application.id}`
   const hasKeywords = (application.keywords?.length ?? 0) > 0
 
   async function handleReveal(file: 'resume' | 'coverLetter') {
     setRevealError(null)
     try {
-      const res = await fetch('/api/reveal-file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: application.id, file }),
-      })
-      if (!res.ok) throw new Error('Request failed')
+      await storage.revealFile(application.id, file)
     } catch {
-      setRevealError(
-        "Couldn't open Finder. Make sure `npm run dev` is running, then try again.",
-      )
+      setRevealError("Couldn't open Finder. Please try again.")
     }
   }
 
   useEffect(() => {
     let cancelled = false
 
-    const files: Partial<Record<DocKey, string>> = {
-      jobPosting: `${baseUrl}/${application.jobPostingFile}`,
-    }
-    if (application.tailored) {
-      files.resume = `${baseUrl}/${application.resumeFile}`
-      files.coverLetter = `${baseUrl}/${application.coverLetterFile}`
-      files.originalResume = '/original-resume.md'
-    }
-    if (application.interestFile) {
-      files.interest = `${baseUrl}/${application.interestFile}`
-    }
+    const docKinds: DocKey[] = ['jobPosting']
+    if (application.tailored) docKinds.push('resume', 'coverLetter', 'originalResume')
+    if (application.interestFile) docKinds.push('interest')
 
-    Object.entries(files).forEach(([key, url]) => {
-      fetch(url)
-        .then((res) => (res.ok ? res.text() : Promise.reject(res.status)))
+    docKinds.forEach((kind) => {
+      storage
+        .getDocument(application, kind)
         .then((text) => {
-          if (!cancelled) {
-            setDocs((prev) => ({ ...prev, [key as DocKey]: text }))
-          }
+          if (!cancelled) setDocs((prev) => ({ ...prev, [kind]: text }))
         })
         .catch(() => {
           if (!cancelled) {
-            setDocs((prev) => ({
-              ...prev,
-              [key as DocKey]: '_Could not load this file._',
-            }))
+            setDocs((prev) => ({ ...prev, [kind]: '_Could not load this file._' }))
           }
         })
     })
 
+    if (application.tailored) {
+      if (application.resumePdf) {
+        storage
+          .getDownloadUrl(application, 'resume')
+          .then((url) => {
+            if (!cancelled) setDownloadUrls((prev) => ({ ...prev, resume: url }))
+          })
+          .catch(() => {})
+      }
+      if (application.coverLetterPdf) {
+        storage
+          .getDownloadUrl(application, 'coverLetter')
+          .then((url) => {
+            if (!cancelled) setDownloadUrls((prev) => ({ ...prev, coverLetter: url }))
+          })
+          .catch(() => {})
+      }
+    }
+
     return () => {
       cancelled = true
     }
-  }, [application, baseUrl])
+  }, [application])
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'posting', label: 'Job posting' },
@@ -228,21 +231,25 @@ function ApplicationDetail({
       {activeTab === 'resume' && application.resumePdf && (
         <section className="detail-section">
           <div className="detail-section-heading">
-            <Tooltip label="Opens your file manager with this exact PDF selected, in its real application folder">
-              <button
-                type="button"
-                className="reveal-button"
-                onClick={() => handleReveal('resume')}
+            {storage.supportsReveal && (
+              <Tooltip label="Opens your file manager with this exact PDF selected, in its real application folder">
+                <button
+                  type="button"
+                  className="reveal-button"
+                  onClick={() => handleReveal('resume')}
+                >
+                  {revealButtonLabel()}
+                </button>
+              </Tooltip>
+            )}
+            {downloadUrls.resume && (
+              <a
+                href={downloadUrls.resume}
+                download={withCompanySuffix(application.resumePdf, application.company)}
               >
-                {revealButtonLabel()}
-              </button>
-            </Tooltip>
-            <a
-              href={`${baseUrl}/${application.resumePdf}`}
-              download={withCompanySuffix(application.resumePdf, application.company)}
-            >
-              Download PDF
-            </a>
+                Download PDF
+              </a>
+            )}
           </div>
           {revealError && <p className="settings-error">{revealError}</p>}
           {docs.resume ? (
@@ -256,21 +263,25 @@ function ApplicationDetail({
       {activeTab === 'coverLetter' && application.coverLetterPdf && (
         <section className="detail-section">
           <div className="detail-section-heading">
-            <Tooltip label="Opens your file manager with this exact PDF selected, in its real application folder">
-              <button
-                type="button"
-                className="reveal-button"
-                onClick={() => handleReveal('coverLetter')}
+            {storage.supportsReveal && (
+              <Tooltip label="Opens your file manager with this exact PDF selected, in its real application folder">
+                <button
+                  type="button"
+                  className="reveal-button"
+                  onClick={() => handleReveal('coverLetter')}
+                >
+                  {revealButtonLabel()}
+                </button>
+              </Tooltip>
+            )}
+            {downloadUrls.coverLetter && (
+              <a
+                href={downloadUrls.coverLetter}
+                download={withCompanySuffix(application.coverLetterPdf, application.company)}
               >
-                {revealButtonLabel()}
-              </button>
-            </Tooltip>
-            <a
-              href={`${baseUrl}/${application.coverLetterPdf}`}
-              download={withCompanySuffix(application.coverLetterPdf, application.company)}
-            >
-              Download PDF
-            </a>
+                Download PDF
+              </a>
+            )}
           </div>
           {revealError && <p className="settings-error">{revealError}</p>}
           {docs.coverLetter ? (

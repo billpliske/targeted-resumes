@@ -146,7 +146,9 @@
   font-size: 14px;
 }
 
-.settings-field input[type='text'] {
+.settings-field input[type='text'],
+.settings-field input[type='email'],
+.settings-field input[type='password'] {
   width: 100%;
   padding: 10px 12px;
   border-radius: 8px;
@@ -154,6 +156,33 @@
   background: var(--bg);
   color: var(--text-h);
   font: inherit;
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.login-panel {
+  width: 100%;
+  max-width: 360px;
+}
+
+.login-panel h1 {
+  font-size: 24px;
+  margin: 0 0 24px;
+}
+
+.login-panel form {
+  display: flex;
+  flex-direction: column;
+}
+
+.login-panel .settings-save {
+  align-self: flex-start;
 }
 
 .settings-field input[type='file'] {
@@ -440,6 +469,16 @@
 
 .application-company {
   color: var(--text);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .application-company {
+    max-width: none;
+  }
 }
 
 .application-date {

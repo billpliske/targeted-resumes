@@ -119,7 +119,7 @@ async function classifyListing(
   // domains embedding an Ashby widget — is client-rendered and never
   // includes the schema block server-side, live or closed, so applying
   // this check there produces a false "filled" every time.
-  let isAshbyOrgBoard = false
+  let isAshbyOrgBoard: boolean
   try {
     const parsedUrl = new URL(response.url)
     isAshbyOrgBoard =
@@ -621,6 +621,9 @@ function latestVersionPlugin(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    port: 5190,
+  },
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
   },

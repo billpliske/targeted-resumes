@@ -136,7 +136,9 @@ function ApplicationList({
                     <span className="screened-only-badge">Screened only</span>
                   )}
                 </span>
-                <span className="application-company">{app.company}</span>
+                <span className="application-company" title={app.company}>
+                  {app.company}
+                </span>
                 <span className="application-date">
                   {formatDate(app.dateAdded)}
                 </span>
