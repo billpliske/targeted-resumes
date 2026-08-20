@@ -2,6 +2,10 @@
 
 Notable changes to this app, listed by version. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.3.0
+
+- "Sync now" is now two-way: it still pushes applications created locally up to the cloud, but now also downloads applications that exist in the cloud but not on the current machine — so an application created on one computer becomes available for Claude Code to work with (e.g. "fully tailor this") on another, not just visible in the dashboard there.
+
 ## 1.2.1
 
 - Fixed cloud mode silently showing a blank page instead of the login screen when `public/amplify_outputs.json` is missing or the backend can't be reached — now shows a clear error message instead.

@@ -90,18 +90,21 @@ function App() {
     setSyncing(true)
     setSyncSummary(null)
     try {
-      const result = await storage.syncFromLocal()
-      if (result.added > 0) {
+      const result = await storage.sync()
+      if (result.pushed > 0) {
         storage.listApplications().then(setApplications)
       }
       const failedNote =
         result.failed.length > 0
           ? ` — ${result.failed.length} failed (${result.failed.map((f) => f.id).join(', ')})`
           : ''
+      const parts: string[] = []
+      if (result.pushed > 0) parts.push(`${result.pushed} pushed`)
+      if (result.pulled > 0) parts.push(`${result.pulled} downloaded`)
       setSyncSummary(
-        result.added === 0 && result.failed.length === 0
-          ? 'Nothing new to sync.'
-          : `Synced ${result.added} application${result.added === 1 ? '' : 's'}${failedNote}.`,
+        parts.length === 0 && result.failed.length === 0
+          ? 'Nothing new to sync — local and cloud already match.'
+          : `Synced: ${parts.join(', ') || 'nothing'}${failedNote}.`,
       )
       setPendingSyncCount(await storage.getPendingSyncCount())
     } catch {
@@ -259,7 +262,7 @@ function App() {
           </Tooltip>
           {!selected && storage.supportsSync && (
             <div className="check-listings">
-              <Tooltip label="Pushes applications created locally by Claude Code up to the cloud so they show up on your other devices">
+              <Tooltip label="Keeps this machine's local files and the cloud in sync — pushes new local applications up, and downloads cloud-only ones locally so Claude Code can find them here">
                 <button
                   type="button"
                   className="check-listings-button"

@@ -67,14 +67,32 @@ function mapRecord(r: Schema['Application']['type']): Application {
   }
 }
 
-async function getLocalOnlyApplications(): Promise<Application[]> {
-  const localRes = await fetch('/applications-manifest.json')
-  const localApps: Application[] = localRes.ok ? await localRes.json() : []
-  if (localApps.length === 0) return []
-  const c = await getClient()
+async function getLocalApplications(): Promise<Application[]> {
+  const res = await fetch('/applications-manifest.json')
+  return res.ok ? res.json() : []
+}
+
+async function diffLocalAndCloud(): Promise<{ localOnly: Application[]; cloudOnly: Application[] }> {
+  const [localApps, c] = [await getLocalApplications(), await getClient()]
   const { data } = await c.models.Application.list()
-  const cloudIds = new Set(data.map((a) => a.applicationId))
-  return localApps.filter((app) => !cloudIds.has(app.id))
+  const cloudApps = data.map(mapRecord)
+  const localIds = new Set(localApps.map((a) => a.id))
+  const cloudIds = new Set(cloudApps.map((a) => a.id))
+  return {
+    localOnly: localApps.filter((app) => !cloudIds.has(app.id)),
+    cloudOnly: cloudApps.filter((app) => !localIds.has(app.id)),
+  }
+}
+
+function textToBase64(text: string): string {
+  return btoa(unescape(encodeURIComponent(text)))
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary)
 }
 
 async function syncOneApplication(app: Application) {
@@ -129,6 +147,38 @@ async function syncOneApplication(app: Application) {
     interestFile: app.interestFile,
   })
   if (errors) throw new Error(errors.map((e) => e.message).join('; '))
+}
+
+async function pullOneApplication(app: Application) {
+  const files: { filename: string; contentBase64: string }[] = []
+
+  const addTextFile = async (filename: string) => {
+    const text = await downloadText(applicationPath(app.id, filename))
+    files.push({ filename, contentBase64: textToBase64(text) })
+  }
+  const addBinaryFile = async (filename: string) => {
+    const result = await downloadData({ path: applicationPath(app.id, filename) }).result
+    const blob = await result.body.blob()
+    files.push({ filename, contentBase64: await blobToBase64(blob) })
+  }
+
+  await addTextFile(app.jobPostingFile)
+  if (app.tailored) {
+    if (app.resumeFile) await addTextFile(app.resumeFile)
+    if (app.coverLetterFile) await addTextFile(app.coverLetterFile)
+    if (app.resumePdf) await addBinaryFile(app.resumePdf)
+    if (app.coverLetterPdf) await addBinaryFile(app.coverLetterPdf)
+  }
+  if (app.interestFile) await addTextFile(app.interestFile)
+
+  files.push({ filename: 'meta.json', contentBase64: textToBase64(JSON.stringify(app, null, 2)) })
+
+  const res = await fetch('/api/write-application-files', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: app.id, files }),
+  })
+  if (!res.ok) throw new Error('Could not write local files — is `npm run dev` running?')
 }
 
 async function syncOriginalResumeIfMissing() {
@@ -274,23 +324,33 @@ export const amplifyAdapter: StorageAdapter = {
   async getPendingSyncCount() {
     await ensureAmplifyConfigured()
     try {
-      const pending = await getLocalOnlyApplications()
-      return pending.length
+      const { localOnly, cloudOnly } = await diffLocalAndCloud()
+      return localOnly.length + cloudOnly.length
     } catch {
       return 0
     }
   },
-  async syncFromLocal() {
+  async sync() {
     await ensureAmplifyConfigured()
-    const pending = await getLocalOnlyApplications()
-    let added = 0
+    const { localOnly, cloudOnly } = await diffLocalAndCloud()
+    let pushed = 0
+    let pulled = 0
     const failed: { id: string; error: string }[] = []
-    for (const app of pending) {
+
+    for (const app of localOnly) {
       try {
         await syncOneApplication(app)
-        added++
+        pushed++
       } catch (err) {
-        failed.push({ id: app.id, error: err instanceof Error ? err.message : 'Sync failed' })
+        failed.push({ id: app.id, error: err instanceof Error ? err.message : 'Push failed' })
+      }
+    }
+    for (const app of cloudOnly) {
+      try {
+        await pullOneApplication(app)
+        pulled++
+      } catch (err) {
+        failed.push({ id: app.id, error: err instanceof Error ? err.message : 'Pull failed' })
       }
     }
     try {
@@ -298,6 +358,6 @@ export const amplifyAdapter: StorageAdapter = {
     } catch {
       // best-effort — keyword compare just won't have a baseline until this succeeds
     }
-    return { added, failed }
+    return { pushed, pulled, failed }
   },
 }

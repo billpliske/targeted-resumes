@@ -26,7 +26,8 @@ export interface CheckListingResult {
 }
 
 export interface SyncResult {
-  added: number
+  pushed: number
+  pulled: number
   failed: { id: string; error: string }[]
 }
 
@@ -56,11 +57,14 @@ export interface StorageAdapter {
   uploadResume(file: File): Promise<void>
   uploadCoverLetterTemplate(file: File): Promise<void>
 
-  // Pushes applications that exist in local files (written by the
-  // add-application/check-fit Claude Code skills) but not yet in the cloud
-  // database — only meaningful in cloud mode, driven by a manual "Sync now"
-  // button rather than anything automatic.
+  // Keeps this machine's local files and the cloud database in agreement:
+  // pushes applications that exist locally (written by the
+  // add-application/check-fit Claude Code skills) but not yet in the cloud,
+  // and pulls down ones that exist in the cloud but not on this machine (so
+  // Claude Code, which only ever reads local files, can find and promote an
+  // entry created on a different machine). Only meaningful in cloud mode,
+  // driven by a manual "Sync now" button rather than anything automatic.
   readonly supportsSync: boolean
   getPendingSyncCount(): Promise<number>
-  syncFromLocal(): Promise<SyncResult>
+  sync(): Promise<SyncResult>
 }

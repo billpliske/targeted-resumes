@@ -1,7 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
-import { readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, rmSync, mkdirSync } from 'node:fs'
 import { execFile, execFileSync } from 'node:child_process'
 // @ts-expect-error -- plain JS script, no type declarations
 import { buildManifest } from './scripts/build-manifest.mjs'
@@ -284,6 +284,72 @@ function deleteApiPlugin(): Plugin {
             }
 
             rmSync(dir, { recursive: true, force: true })
+            buildManifest()
+
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ ok: true }))
+          })
+          .catch(() => {
+            res.statusCode = 500
+            res.end('Server error')
+          })
+      })
+    },
+  }
+}
+
+// Bare filename only — no path separators or ".." segments — since this
+// writes wherever it's told inside the application's own directory.
+function isSafeFilename(filename: unknown): filename is string {
+  return (
+    typeof filename === 'string' &&
+    filename.length > 0 &&
+    !filename.includes('/') &&
+    !filename.includes('\\') &&
+    filename !== '..'
+  )
+}
+
+// Cloud mode's "Sync now" button uses this to write files it already
+// fetched (client-side, via the user's own logged-in session) down to
+// local disk — the dev server itself never talks to AWS.
+function writeApplicationFilesPlugin(): Plugin {
+  return {
+    name: 'write-application-files-api',
+    configureServer(server) {
+      server.middlewares.use('/api/write-application-files', (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+
+        readJsonBody(req)
+          .then(({ id, files }) => {
+            const dir = resolveApplicationDir(id)
+            if (!dir || dir === applicationsDir || !Array.isArray(files)) {
+              res.statusCode = 400
+              res.end('Invalid request')
+              return
+            }
+
+            for (const file of files) {
+              if (
+                typeof file !== 'object' ||
+                file === null ||
+                !isSafeFilename((file as Record<string, unknown>).filename) ||
+                typeof (file as Record<string, unknown>).contentBase64 !== 'string'
+              ) {
+                res.statusCode = 400
+                res.end('Invalid file entry')
+                return
+              }
+            }
+
+            mkdirSync(dir, { recursive: true })
+            for (const file of files as { filename: string; contentBase64: string }[]) {
+              writeFileSync(path.join(dir, file.filename), Buffer.from(file.contentBase64, 'base64'))
+            }
             buildManifest()
 
             res.setHeader('Content-Type', 'application/json')
@@ -631,6 +697,7 @@ export default defineConfig({
     react(),
     statusApiPlugin(),
     deleteApiPlugin(),
+    writeApplicationFilesPlugin(),
     revealFilePlugin(),
     checkListingPlugin(),
     settingsApiPlugin(),

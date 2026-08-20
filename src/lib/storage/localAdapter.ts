@@ -123,7 +123,7 @@ export const localAdapter: StorageAdapter = {
   async getPendingSyncCount() {
     return 0
   },
-  async syncFromLocal() {
+  async sync() {
     throw new Error('Sync is not applicable in local mode')
   },
 }
