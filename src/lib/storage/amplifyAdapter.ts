@@ -323,12 +323,8 @@ export const amplifyAdapter: StorageAdapter = {
   supportsSync: true,
   async getPendingSyncCount() {
     await ensureAmplifyConfigured()
-    try {
-      const { localOnly, cloudOnly } = await diffLocalAndCloud()
-      return localOnly.length + cloudOnly.length
-    } catch {
-      return 0
-    }
+    const { localOnly, cloudOnly } = await diffLocalAndCloud()
+    return localOnly.length + cloudOnly.length
   },
   async sync() {
     await ensureAmplifyConfigured()

@@ -2,6 +2,10 @@
 
 Notable changes to this app, listed by version. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.3.1
+
+- Fixed "Sync now" silently showing "Up to date" (and staying disabled) when it actually failed to check sync status — it now shows a clear "Sync error" state with the real error message instead of hiding the failure.
+
 ## 1.3.0
 
 - "Sync now" is now two-way: it still pushes applications created locally up to the cloud, but now also downloads applications that exist in the cloud but not on the current machine — so an application created on one computer becomes available for Claude Code to work with (e.g. "fully tailor this") on another, not just visible in the dashboard there.

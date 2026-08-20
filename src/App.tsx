@@ -49,6 +49,7 @@ function App() {
   const [signedInEmail, setSignedInEmail] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
   const [pendingSyncCount, setPendingSyncCount] = useState(0)
+  const [syncCountError, setSyncCountError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [syncSummary, setSyncSummary] = useState<string | null>(null)
 
@@ -75,6 +76,18 @@ function App() {
       .catch(() => setLatestVersion(null))
   }, [])
 
+  function refreshPendingSyncCount() {
+    storage
+      .getPendingSyncCount()
+      .then((count) => {
+        setPendingSyncCount(count)
+        setSyncCountError(null)
+      })
+      .catch((err) => {
+        setSyncCountError(err instanceof Error ? err.message : 'Could not check sync status')
+      })
+  }
+
   useEffect(() => {
     if (isCloudMode && !signedInEmail) return
     storage
@@ -82,7 +95,7 @@ function App() {
       .then((data) => setApplications(data))
       .catch(() => setApplications([]))
     if (storage.supportsSync) {
-      storage.getPendingSyncCount().then(setPendingSyncCount)
+      refreshPendingSyncCount()
     }
   }, [signedInEmail])
 
@@ -106,9 +119,9 @@ function App() {
           ? 'Nothing new to sync — local and cloud already match.'
           : `Synced: ${parts.join(', ') || 'nothing'}${failedNote}.`,
       )
-      setPendingSyncCount(await storage.getPendingSyncCount())
-    } catch {
-      setSyncSummary("Couldn't sync. Please try again.")
+      refreshPendingSyncCount()
+    } catch (err) {
+      setSyncSummary(err instanceof Error ? `Couldn't sync: ${err.message}` : "Couldn't sync. Please try again.")
     }
     setSyncing(false)
     setTimeout(() => setSyncSummary(null), 8000)
@@ -262,21 +275,32 @@ function App() {
           </Tooltip>
           {!selected && storage.supportsSync && (
             <div className="check-listings">
-              <Tooltip label="Keeps this machine's local files and the cloud in sync — pushes new local applications up, and downloads cloud-only ones locally so Claude Code can find them here">
+              <Tooltip
+                label={
+                  syncCountError
+                    ? `Couldn't check sync status: ${syncCountError}`
+                    : "Keeps this machine's local files and the cloud in sync — pushes new local applications up, and downloads cloud-only ones locally so Claude Code can find them here"
+                }
+              >
                 <button
                   type="button"
                   className="check-listings-button"
                   onClick={handleSync}
-                  disabled={syncing || pendingSyncCount === 0}
+                  disabled={syncing}
                 >
                   <UploadCloud size={16} />
                   {syncing
                     ? 'Syncing…'
-                    : pendingSyncCount > 0
-                      ? `Sync now (${pendingSyncCount})`
-                      : 'Up to date'}
+                    : syncCountError
+                      ? 'Sync error'
+                      : pendingSyncCount > 0
+                        ? `Sync now (${pendingSyncCount})`
+                        : 'Up to date'}
                 </button>
               </Tooltip>
+              {syncCountError && !syncSummary && (
+                <p className="settings-error">{syncCountError}</p>
+              )}
               {syncSummary && <p className="check-listings-summary">{syncSummary}</p>}
             </div>
           )}
