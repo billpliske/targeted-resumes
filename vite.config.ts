@@ -1,7 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
-import { readFileSync, writeFileSync, existsSync, rmSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, rmSync, mkdirSync, statSync, readdirSync } from 'node:fs'
 import { execFile, execFileSync } from 'node:child_process'
 // @ts-expect-error -- plain JS script, no type declarations
 import { buildManifest } from './scripts/build-manifest.mjs'
@@ -359,6 +359,36 @@ function writeApplicationFilesPlugin(): Plugin {
             res.statusCode = 500
             res.end('Server error')
           })
+      })
+    },
+  }
+}
+
+// Lets cloud-mode sync tell which side of a same-id conflict is actually
+// newer — a local meta.json's mtime naturally advances whenever Claude Code
+// (running locally) edits it, which is the only local-side signal available
+// without asking every skill invocation to also stamp a timestamp field.
+function applicationMtimesPlugin(): Plugin {
+  return {
+    name: 'application-mtimes-api',
+    configureServer(server) {
+      server.middlewares.use('/api/application-mtimes', (req, res) => {
+        if (req.method !== 'GET') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+        const mtimes: Record<string, string> = {}
+        if (existsSync(applicationsDir)) {
+          for (const id of readdirSync(applicationsDir)) {
+            const metaPath = path.join(applicationsDir, id, 'meta.json')
+            if (existsSync(metaPath)) {
+              mtimes[id] = statSync(metaPath).mtime.toISOString()
+            }
+          }
+        }
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify(mtimes))
       })
     },
   }
@@ -724,6 +754,7 @@ export default defineConfig({
     statusApiPlugin(),
     deleteApiPlugin(),
     writeApplicationFilesPlugin(),
+    applicationMtimesPlugin(),
     revealFilePlugin(),
     checkListingPlugin(),
     settingsApiPlugin(),

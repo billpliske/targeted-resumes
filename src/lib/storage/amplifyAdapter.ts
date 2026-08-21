@@ -106,27 +106,51 @@ function contentFingerprint(app: Application): string {
   })
 }
 
+async function getLocalMtimes(): Promise<Record<string, string>> {
+  const res = await fetch('/api/application-mtimes')
+  return res.ok ? res.json() : {}
+}
+
 async function diffLocalAndCloud(): Promise<{
   localOnly: Application[]
   cloudOnly: Application[]
-  updated: Application[]
+  toPush: Application[]
+  toPull: Application[]
 }> {
-  const [localApps, c] = [await getLocalApplications(), await getClient()]
+  const [localApps, c, localMtimes] = [
+    await getLocalApplications(),
+    await getClient(),
+    await getLocalMtimes(),
+  ]
   const { data } = await c.models.Application.list()
-  const cloudApps = data.map(mapRecord)
   const localIds = new Set(localApps.map((a) => a.id))
-  const cloudById = new Map(cloudApps.map((a) => [a.id, a]))
-  const updated: Application[] = []
+  const cloudById = new Map(data.map((r) => [r.applicationId, r]))
+
+  const toPush: Application[] = []
+  const toPull: Application[] = []
   for (const localApp of localApps) {
-    const cloudApp = cloudById.get(localApp.id)
-    if (cloudApp && contentFingerprint(localApp) !== contentFingerprint(cloudApp)) {
-      updated.push(localApp)
+    const cloudRecord = cloudById.get(localApp.id)
+    if (!cloudRecord) continue
+    const cloudApp = mapRecord(cloudRecord)
+    if (contentFingerprint(localApp) === contentFingerprint(cloudApp)) continue
+
+    // Which side actually changed more recently — not "local always wins".
+    // A stale local copy that never touched this app since a different
+    // machine pushed an update must never overwrite that update.
+    const localMtime = localMtimes[localApp.id] ? new Date(localMtimes[localApp.id]) : null
+    const cloudUpdatedAt = new Date(cloudRecord.updatedAt)
+    if (localMtime && localMtime > cloudUpdatedAt) {
+      toPush.push(localApp)
+    } else {
+      toPull.push(cloudApp)
     }
   }
+
   return {
     localOnly: localApps.filter((app) => !cloudById.has(app.id)),
-    cloudOnly: cloudApps.filter((app) => !localIds.has(app.id)),
-    updated,
+    cloudOnly: data.map(mapRecord).filter((app) => !localIds.has(app.id)),
+    toPush,
+    toPull,
   }
 }
 
@@ -464,12 +488,12 @@ export const amplifyAdapter: StorageAdapter = {
   supportsSync: true,
   async getPendingSyncCount() {
     await ensureAmplifyConfigured()
-    const { localOnly, cloudOnly, updated } = await diffLocalAndCloud()
-    return localOnly.length + cloudOnly.length + updated.length
+    const { localOnly, cloudOnly, toPush, toPull } = await diffLocalAndCloud()
+    return localOnly.length + cloudOnly.length + toPush.length + toPull.length
   },
   async sync() {
     await ensureAmplifyConfigured()
-    const { localOnly, cloudOnly, updated } = await diffLocalAndCloud()
+    const { localOnly, cloudOnly, toPush, toPull } = await diffLocalAndCloud()
     let pushed = 0
     let pulled = 0
     const failed: { id: string; error: string }[] = []
@@ -482,7 +506,7 @@ export const amplifyAdapter: StorageAdapter = {
         failed.push({ id: app.id, error: err instanceof Error ? err.message : 'Push failed' })
       }
     }
-    for (const app of updated) {
+    for (const app of toPush) {
       try {
         await pushApplicationUpdate(app)
         pushed++
@@ -490,7 +514,7 @@ export const amplifyAdapter: StorageAdapter = {
         failed.push({ id: app.id, error: err instanceof Error ? err.message : 'Update failed' })
       }
     }
-    for (const app of cloudOnly) {
+    for (const app of [...cloudOnly, ...toPull]) {
       try {
         await pullOneApplication(app)
         pulled++

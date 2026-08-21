@@ -2,6 +2,10 @@
 
 Notable changes to this app, listed by version. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.4.1
+
+- Fixed a real conflict-resolution bug in "Sync now": when an application had been updated on a different machine (and pushed to the cloud), syncing on a machine with a stale, untouched local copy of that same application would blindly push the stale version up and overwrite the newer cloud data. Sync now compares which side actually changed more recently (the cloud's auto-tracked update time vs. the local file's own modified time) and pulls the newer side down instead of always assuming local wins. Verified with a real conflict scenario before shipping.
+
 ## 1.4.0
 
 - "Sync now" now also pulls down `original-resume.md` and `settings.json` (name, PDF filenames, personal project repos, manual projects) to a machine that doesn't have them yet — previously only per-application folders synced, so a fresh machine could see applications in the dashboard but Claude Code couldn't actually tailor or promote anything (no canonical resume or Settings to work from). Also pushes those files up the same way if this machine has them and the cloud doesn't.
