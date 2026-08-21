@@ -2,6 +2,10 @@
 
 Notable changes to this app, listed by version. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.4.2
+
+- Replaced sync's timestamp-based conflict resolution with content hashing — the previous approach (comparing "last updated" times) could be fooled by a status-only change bumping the cloud's timestamp without the content actually changing, silently hiding a genuinely pending local edit. Sync now compares an actual SHA-256 hash of each application's content files against the last hash both sides agreed on, so direction is decided by what actually changed, not by clock time. Verified live: pushed, pulled, and confirmed a second sync immediately settles at "nothing to do" instead of re-triggering.
+
 ## 1.4.1
 
 - Fixed a real conflict-resolution bug in "Sync now": when an application had been updated on a different machine (and pushed to the cloud), syncing on a machine with a stale, untouched local copy of that same application would blindly push the stale version up and overwrite the newer cloud data. Sync now compares which side actually changed more recently (the cloud's auto-tracked update time vs. the local file's own modified time) and pulls the newer side down instead of always assuming local wins. Verified with a real conflict scenario before shipping.

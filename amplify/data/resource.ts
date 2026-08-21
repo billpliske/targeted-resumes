@@ -27,6 +27,12 @@ const schema = a.schema({
       coverLetterFile: a.string(),
       coverLetterPdf: a.string(),
       interestFile: a.string(),
+      // SHA-256 of the application's actual content files (job posting +
+      // resume/cover-letter/interest markdown, when present) — lets sync
+      // tell whether content genuinely changed without relying on
+      // timestamps, which get bumped by irrelevant updates (a status
+      // change) and are vulnerable to clock skew between machines.
+      contentHash: a.string(),
     })
     .identifier(['applicationId'])
     .authorization((allow) => [allow.owner()]),

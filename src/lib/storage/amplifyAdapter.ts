@@ -79,76 +79,78 @@ async function getLocalApplications(): Promise<Application[]> {
   }
 }
 
-// Fields Claude Code's skills actually own — deliberately excludes `status`
-// (set only via the UI, directly against the cloud, never written back to
-// local files) and `dateAdded` (format-only differences after a round-trip
-// through AppSync — see syncOneApplication). Comparing this fingerprint is
-// what lets a local promotion (e.g. tailored: false -> true) push an update
-// to a record that already exists in the cloud, without ever clobbering a
-// status change made from a different machine.
-function contentFingerprint(app: Application): string {
-  return JSON.stringify({
-    company: app.company,
-    role: app.role,
-    jobUrl: app.jobUrl ?? null,
-    jobPostingSource: app.jobPostingSource,
-    location: app.location ?? null,
-    keywords: app.keywords ?? [],
-    fitRating: app.fitRating ?? null,
-    fitSummary: app.fitSummary ?? null,
-    tailored: app.tailored,
-    jobPostingFile: app.jobPostingFile,
-    resumeFile: app.resumeFile ?? null,
-    resumePdf: app.resumePdf ?? null,
-    coverLetterFile: app.coverLetterFile ?? null,
-    coverLetterPdf: app.coverLetterPdf ?? null,
-    interestFile: app.interestFile ?? null,
-  })
-}
-
 async function getLocalMtimes(): Promise<Record<string, string>> {
   const res = await fetch('/api/application-mtimes')
   return res.ok ? res.json() : {}
 }
 
+async function getLocalContentHashes(): Promise<Record<string, string>> {
+  const res = await fetch('/api/application-content-hashes')
+  return res.ok ? res.json() : {}
+}
+
+interface PullTarget {
+  app: Application
+  contentHash: string | null
+}
+
 async function diffLocalAndCloud(): Promise<{
   localOnly: Application[]
-  cloudOnly: Application[]
+  cloudOnly: PullTarget[]
   toPush: Application[]
-  toPull: Application[]
+  toPull: PullTarget[]
 }> {
-  const [localApps, c, localMtimes] = [
+  const [localApps, c, localMtimes, localHashes] = [
     await getLocalApplications(),
     await getClient(),
     await getLocalMtimes(),
+    await getLocalContentHashes(),
   ]
   const { data } = await c.models.Application.list()
   const localIds = new Set(localApps.map((a) => a.id))
   const cloudById = new Map(data.map((r) => [r.applicationId, r]))
 
   const toPush: Application[] = []
-  const toPull: Application[] = []
+  const toPull: PullTarget[] = []
   for (const localApp of localApps) {
     const cloudRecord = cloudById.get(localApp.id)
     if (!cloudRecord) continue
     const cloudApp = mapRecord(cloudRecord)
-    if (contentFingerprint(localApp) === contentFingerprint(cloudApp)) continue
+    const cloudHash = cloudRecord.contentHash ?? null
+    const localHash = localHashes[localApp.id] ?? null
+    const localSyncedHash =
+      (localApp as Application & { _syncedContentHash?: string })._syncedContentHash ?? null
 
-    // Which side actually changed more recently — not "local always wins".
-    // A stale local copy that never touched this app since a different
-    // machine pushed an update must never overwrite that update.
-    const localMtime = localMtimes[localApp.id] ? new Date(localMtimes[localApp.id]) : null
-    const cloudUpdatedAt = new Date(cloudRecord.updatedAt)
-    if (localMtime && localMtime > cloudUpdatedAt) {
+    if (localHash !== null && cloudHash !== null && localHash === cloudHash) continue
+
+    // Content hashing, not timestamps: a status-only cloud update bumps
+    // updatedAt without changing content, which would otherwise mask a
+    // pending local edit made just before it. Comparing what actually
+    // changed relative to the last agreed hash sidesteps that entirely.
+    let localChanged: boolean
+    if (localHash !== null && localSyncedHash !== null) {
+      localChanged = localHash !== localSyncedHash
+    } else {
+      // No recorded baseline (e.g. an application synced before this
+      // machine ever ran hash-aware sync) — fall back to mtime vs. the
+      // cloud's last update time, same heuristic as before.
+      const localMtime = localMtimes[localApp.id] ? new Date(localMtimes[localApp.id]) : null
+      const cloudUpdatedAt = new Date(cloudRecord.updatedAt)
+      localChanged = localMtime !== null && localMtime > cloudUpdatedAt
+    }
+
+    if (localChanged) {
       toPush.push(localApp)
     } else {
-      toPull.push(cloudApp)
+      toPull.push({ app: cloudApp, contentHash: cloudHash })
     }
   }
 
   return {
     localOnly: localApps.filter((app) => !cloudById.has(app.id)),
-    cloudOnly: data.map(mapRecord).filter((app) => !localIds.has(app.id)),
+    cloudOnly: data
+      .filter((r) => !localIds.has(r.applicationId))
+      .map((r) => ({ app: mapRecord(r), contentHash: r.contentHash ?? null })),
     toPush,
     toPull,
   }
@@ -163,6 +165,49 @@ async function blobToBase64(blob: Blob): Promise<string> {
   let binary = ''
   for (const byte of bytes) binary += String.fromCharCode(byte)
   return btoa(binary)
+}
+
+async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+// Must match vite.config.ts's contentHashFilenames + hash construction
+// exactly (same file order, same "filename:length:content" framing) — the
+// two sides are only comparable if they agree byte-for-byte on the input.
+async function computeLocalContentHash(app: Application): Promise<string> {
+  const filenames = [app.jobPostingFile]
+  if (app.tailored) {
+    if (app.resumeFile) filenames.push(app.resumeFile)
+    if (app.coverLetterFile) filenames.push(app.coverLetterFile)
+  }
+  if (app.interestFile) filenames.push(app.interestFile)
+
+  let combined = ''
+  for (const filename of filenames) {
+    const res = await fetch(`/applications/${app.id}/${filename}`)
+    const text = res.ok ? await res.text() : ''
+    combined += `${filename}:${text.length}:${text}\n`
+  }
+  return sha256Hex(combined)
+}
+
+// Records the hash both sides just agreed on, directly into the local
+// meta.json, as a hidden field the UI never reads — it's the baseline the
+// next sync uses to tell "local changed since we last talked to the cloud"
+// apart from "cloud changed and local is just stale."
+async function writeLocalSyncMarker(app: Application, syncedContentHash: string) {
+  const meta = { ...app, _syncedContentHash: syncedContentHash }
+  await fetch('/api/write-application-files', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: app.id,
+      files: [{ filename: 'meta.json', contentBase64: textToBase64(JSON.stringify(meta, null, 2)) }],
+    }),
+  })
 }
 
 async function uploadApplicationFiles(app: Application) {
@@ -196,6 +241,7 @@ async function uploadApplicationFiles(app: Application) {
 async function syncOneApplication(app: Application) {
   const c = await getClient()
   await uploadApplicationFiles(app)
+  const contentHash = await computeLocalContentHash(app)
 
   const { errors } = await c.models.Application.create({
     applicationId: app.id,
@@ -219,16 +265,19 @@ async function syncOneApplication(app: Application) {
     coverLetterFile: app.coverLetterFile,
     coverLetterPdf: app.coverLetterPdf,
     interestFile: app.interestFile,
+    contentHash,
   })
   if (errors) throw new Error(errors.map((e) => e.message).join('; '))
+  await writeLocalSyncMarker(app, contentHash)
 }
 
-// Deliberately omits `status` and `dateAdded` from the payload — those are
-// never sourced from local files (see contentFingerprint), so leaving them
-// out of the update means Amplify Data just doesn't touch them.
+// Deliberately omits `status` and `dateAdded` from the payload — status is
+// never sourced from local files (set only via the UI, directly against the
+// cloud), so leaving it out means Amplify Data just doesn't touch it.
 async function pushApplicationUpdate(app: Application) {
   const c = await getClient()
   await uploadApplicationFiles(app)
+  const contentHash = await computeLocalContentHash(app)
 
   const { errors } = await c.models.Application.update({
     applicationId: app.id,
@@ -247,11 +296,13 @@ async function pushApplicationUpdate(app: Application) {
     coverLetterFile: app.coverLetterFile,
     coverLetterPdf: app.coverLetterPdf,
     interestFile: app.interestFile,
+    contentHash,
   })
   if (errors) throw new Error(errors.map((e) => e.message).join('; '))
+  await writeLocalSyncMarker(app, contentHash)
 }
 
-async function pullOneApplication(app: Application) {
+async function pullOneApplication(app: Application, contentHash: string | null) {
   const files: { filename: string; contentBase64: string }[] = []
 
   const addTextFile = async (filename: string) => {
@@ -273,7 +324,9 @@ async function pullOneApplication(app: Application) {
   }
   if (app.interestFile) await addTextFile(app.interestFile)
 
-  files.push({ filename: 'meta.json', contentBase64: textToBase64(JSON.stringify(app, null, 2)) })
+  const meta =
+    contentHash !== null ? { ...app, _syncedContentHash: contentHash } : app
+  files.push({ filename: 'meta.json', contentBase64: textToBase64(JSON.stringify(meta, null, 2)) })
 
   const res = await fetch('/api/write-application-files', {
     method: 'POST',
@@ -514,12 +567,15 @@ export const amplifyAdapter: StorageAdapter = {
         failed.push({ id: app.id, error: err instanceof Error ? err.message : 'Update failed' })
       }
     }
-    for (const app of [...cloudOnly, ...toPull]) {
+    for (const target of [...cloudOnly, ...toPull]) {
       try {
-        await pullOneApplication(app)
+        await pullOneApplication(target.app, target.contentHash)
         pulled++
       } catch (err) {
-        failed.push({ id: app.id, error: err instanceof Error ? err.message : 'Pull failed' })
+        failed.push({
+          id: target.app.id,
+          error: err instanceof Error ? err.message : 'Pull failed',
+        })
       }
     }
     try {

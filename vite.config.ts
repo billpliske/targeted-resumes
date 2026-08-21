@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import path from 'node:path'
 import { readFileSync, writeFileSync, existsSync, rmSync, mkdirSync, statSync, readdirSync } from 'node:fs'
 import { execFile, execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 // @ts-expect-error -- plain JS script, no type declarations
 import { buildManifest } from './scripts/build-manifest.mjs'
 
@@ -381,14 +382,72 @@ function applicationMtimesPlugin(): Plugin {
         const mtimes: Record<string, string> = {}
         if (existsSync(applicationsDir)) {
           for (const id of readdirSync(applicationsDir)) {
-            const metaPath = path.join(applicationsDir, id, 'meta.json')
-            if (existsSync(metaPath)) {
-              mtimes[id] = statSync(metaPath).mtime.toISOString()
+            const dir = path.join(applicationsDir, id)
+            if (!existsSync(path.join(dir, 'meta.json'))) continue
+            // Max across every file, not just meta.json — editing resume.md
+            // or interest.md in place (same filename, new content) doesn't
+            // touch meta.json at all, but it's still a real local change.
+            let latest = 0
+            for (const filename of readdirSync(dir)) {
+              latest = Math.max(latest, statSync(path.join(dir, filename)).mtimeMs)
             }
+            mtimes[id] = new Date(latest).toISOString()
           }
         }
         res.setHeader('Content-Type', 'application/json')
         res.end(JSON.stringify(mtimes))
+      })
+    },
+  }
+}
+
+// Exact same file selection + hash construction the client uses when
+// computing a hash for what it's about to push — the two sides are only
+// comparable if they agree byte-for-byte on what goes into the hash.
+function contentHashFilenames(meta: {
+  jobPostingFile: string
+  tailored?: boolean
+  resumeFile?: string
+  coverLetterFile?: string
+  interestFile?: string
+}): string[] {
+  const filenames = [meta.jobPostingFile]
+  if (meta.tailored) {
+    if (meta.resumeFile) filenames.push(meta.resumeFile)
+    if (meta.coverLetterFile) filenames.push(meta.coverLetterFile)
+  }
+  if (meta.interestFile) filenames.push(meta.interestFile)
+  return filenames
+}
+
+function applicationContentHashesPlugin(): Plugin {
+  return {
+    name: 'application-content-hashes-api',
+    configureServer(server) {
+      server.middlewares.use('/api/application-content-hashes', (req, res) => {
+        if (req.method !== 'GET') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+        const hashes: Record<string, string> = {}
+        if (existsSync(applicationsDir)) {
+          for (const id of readdirSync(applicationsDir)) {
+            const dir = path.join(applicationsDir, id)
+            const metaPath = path.join(dir, 'meta.json')
+            if (!existsSync(metaPath)) continue
+            const meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
+            const hash = createHash('sha256')
+            for (const filename of contentHashFilenames(meta)) {
+              const filePath = path.join(dir, filename)
+              const content = existsSync(filePath) ? readFileSync(filePath, 'utf-8') : ''
+              hash.update(`${filename}:${content.length}:${content}\n`)
+            }
+            hashes[id] = hash.digest('hex')
+          }
+        }
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify(hashes))
       })
     },
   }
@@ -755,6 +814,7 @@ export default defineConfig({
     deleteApiPlugin(),
     writeApplicationFilesPlugin(),
     applicationMtimesPlugin(),
+    applicationContentHashesPlugin(),
     revealFilePlugin(),
     checkListingPlugin(),
     settingsApiPlugin(),
