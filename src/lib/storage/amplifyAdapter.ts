@@ -259,17 +259,80 @@ async function pullOneApplication(app: Application) {
   if (!res.ok) throw new Error('Could not write local files — is `npm run dev` running?')
 }
 
-async function syncOriginalResumeIfMissing() {
-  const hasResume = await fileExists(settingsPath('original-resume.md'))
-  if (hasResume) return
-  const res = await fetch('/original-resume.md')
-  if (!res.ok) return
-  const text = await res.text()
-  await uploadData({
-    path: settingsPath('original-resume.md'),
-    data: text,
-    options: { contentType: 'text/markdown' },
-  }).result
+interface LocalFilesStatus {
+  hasOriginalResume: boolean
+  hasCoverLetterTemplate: boolean
+  hasSettings: boolean
+}
+
+async function getLocalFilesStatus(): Promise<LocalFilesStatus> {
+  const res = await fetch('/api/local-files-status')
+  if (!res.ok) return { hasOriginalResume: false, hasCoverLetterTemplate: false, hasSettings: false }
+  return res.json()
+}
+
+// Keeps the canonical resume, cover-letter template, and Settings in sync
+// the same way applications are: push up if this machine has it and the
+// cloud doesn't, pull down if the cloud has it and this machine doesn't.
+// Claude Code's skills read these as plain local files, so a machine that's
+// only ever pulled applications down still needs these to actually tailor
+// anything.
+async function syncSharedFiles() {
+  const status = await getLocalFilesStatus()
+
+  async function syncMarkdownFile(
+    filename: 'original-resume.md' | 'cover-letter-template.md',
+    hasLocal: boolean,
+    uploadEndpoint: string,
+  ) {
+    const hasCloud = await fileExists(settingsPath(filename))
+    if (hasLocal && !hasCloud) {
+      const res = await fetch(`/${filename}`)
+      if (res.ok) {
+        const text = await res.text()
+        await uploadData({
+          path: settingsPath(filename),
+          data: text,
+          options: { contentType: 'text/markdown' },
+        }).result
+      }
+    } else if (!hasLocal && hasCloud) {
+      const text = await downloadText(settingsPath(filename))
+      await fetch(uploadEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/markdown' },
+        body: text,
+      })
+    }
+  }
+
+  await syncMarkdownFile('original-resume.md', status.hasOriginalResume, '/api/upload-resume')
+  await syncMarkdownFile(
+    'cover-letter-template.md',
+    status.hasCoverLetterTemplate,
+    '/api/upload-cover-letter-template',
+  )
+
+  if (!status.hasSettings) {
+    const c = await getClient()
+    const { data } = await c.models.Settings.list()
+    const record = data[0]
+    if (record) {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: record.name ?? '',
+          resumeFilename: record.resumeFilename ?? '',
+          coverLetterFilename: record.coverLetterFilename ?? '',
+          personalProjectRepos: (record.personalProjectRepos ?? []).filter(
+            (r): r is string => r != null,
+          ),
+          manualProjects: record.manualProjectsJson ? JSON.parse(record.manualProjectsJson) : [],
+        }),
+      })
+    }
+  }
 }
 
 export const amplifyAdapter: StorageAdapter = {
@@ -436,9 +499,9 @@ export const amplifyAdapter: StorageAdapter = {
       }
     }
     try {
-      await syncOriginalResumeIfMissing()
+      await syncSharedFiles()
     } catch {
-      // best-effort — keyword compare just won't have a baseline until this succeeds
+      // best-effort — Claude Code will just point out these are still missing
     }
     return { pushed, pulled, failed }
   },

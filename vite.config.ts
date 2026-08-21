@@ -597,6 +597,32 @@ function settingsApiPlugin(): Plugin {
   }
 }
 
+// Lets the client (cloud-mode sync) ask "does this machine already have
+// these local files" without the SPA-fallback ambiguity a plain fetch has
+// (see the /api/settings comment above) — existsSync is the reliable check.
+function localFilesStatusPlugin(): Plugin {
+  return {
+    name: 'local-files-status-api',
+    configureServer(server) {
+      server.middlewares.use('/api/local-files-status', (req, res) => {
+        if (req.method !== 'GET') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+        res.setHeader('Content-Type', 'application/json')
+        res.end(
+          JSON.stringify({
+            hasOriginalResume: existsSync(path.resolve('public', 'original-resume.md')),
+            hasCoverLetterTemplate: existsSync(path.resolve('public', 'cover-letter-template.md')),
+            hasSettings: existsSync(settingsPath),
+          }),
+        )
+      })
+    },
+  }
+}
+
 // Writes a POSTed markdown body to a fixed file under public/. Used for the
 // resume and cover-letter-template uploads — both are plain markdown, no
 // parsing, so the raw request body is the file content as-is.
@@ -701,6 +727,7 @@ export default defineConfig({
     revealFilePlugin(),
     checkListingPlugin(),
     settingsApiPlugin(),
+    localFilesStatusPlugin(),
     latestVersionPlugin(),
     uploadTextFilePlugin('/api/upload-resume', 'original-resume.md'),
     uploadTextFilePlugin(

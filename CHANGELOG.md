@@ -2,6 +2,11 @@
 
 Notable changes to this app, listed by version. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.4.0
+
+- "Sync now" now also pulls down `original-resume.md` and `settings.json` (name, PDF filenames, personal project repos, manual projects) to a machine that doesn't have them yet — previously only per-application folders synced, so a fresh machine could see applications in the dashboard but Claude Code couldn't actually tailor or promote anything (no canonical resume or Settings to work from). Also pushes those files up the same way if this machine has them and the cloud doesn't.
+- Fixed a real S3 permissions gap found while testing this: uploading a resume/cover-letter template in Settings was failing with a 403 in cloud mode — the storage access rule for that path needed a backend redeploy to take effect.
+
 ## 1.3.2
 
 - Fixed "Sync" crashing with a raw "not valid JSON" error on a fresh machine with no local applications yet. A missing static file (`applications-manifest.json`, `amplify_outputs.json`) returns Vite's `index.html` app shell with a `200 OK` instead of a clean 404 — the code only checked the status, then tried to parse that HTML as JSON.
