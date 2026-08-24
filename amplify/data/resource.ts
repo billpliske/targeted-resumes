@@ -35,7 +35,7 @@ const schema = a.schema({
       contentHash: a.string(),
     })
     .identifier(['applicationId'])
-    .authorization((allow) => [allow.owner()]),
+    .authorization((allow) => [allow.owner(), allow.publicApiKey().to(['read'])]),
 
   // Single record per user; manualProjects is stored JSON-stringified since
   // Amplify's typed schema has no direct list-of-objects field without a
@@ -57,5 +57,11 @@ export const data = defineData({
   schema,
   authorizationModes: {
     defaultAuthorizationMode: 'userPool',
+    // Backs the read-only public API key on Application (allow.publicApiKey().to(['read']))
+    // used by the resume-dashboard app. Rotate by redeploying the sandbox and updating
+    // resume-dashboard's VITE_APPSYNC_API_KEY env var before this expires.
+    apiKeyAuthorizationMode: {
+      expiresInDays: 365,
+    },
   },
 });

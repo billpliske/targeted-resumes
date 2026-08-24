@@ -2,6 +2,10 @@
 
 Notable changes to this app, listed by version. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.4.3
+
+- Added a read-only public API key to the Application data model, so a separate, external dashboard app can read (never write or delete) application data without needing to sign in. Existing owner-only access for this app is unchanged.
+
 ## 1.4.2
 
 - Replaced sync's timestamp-based conflict resolution with content hashing — the previous approach (comparing "last updated" times) could be fooled by a status-only change bumping the cloud's timestamp without the content actually changing, silently hiding a genuinely pending local edit. Sync now compares an actual SHA-256 hash of each application's content files against the last hash both sides agreed on, so direction is decided by what actually changed, not by clock time. Verified live: pushed, pulled, and confirmed a second sync immediately settles at "nothing to do" instead of re-triggering.
