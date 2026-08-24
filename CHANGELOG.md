@@ -2,6 +2,10 @@
 
 Notable changes to this app, listed by version. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.4.4
+
+- Fixed deletions not sticking in cloud mode: deleting an application removed it from the cloud database but left its local file mirror in place, so the next "Sync now" saw an orphaned local copy and pushed it right back up, resurrecting the application. Deleting now also cleans up the local mirror.
+
 ## 1.4.3
 
 - Added a read-only public API key to the Application data model, so a separate, external dashboard app can read (never write or delete) application data without needing to sign in. Existing owner-only access for this app is unchanged.

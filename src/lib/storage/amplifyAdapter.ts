@@ -457,6 +457,18 @@ export const amplifyAdapter: StorageAdapter = {
     } catch {
       // Best-effort cleanup — the DB record is already gone, which is what the UI reflects.
     }
+    try {
+      // Also remove the local mirror, if this machine has one — otherwise the
+      // next sync sees a "local-only" application with no cloud record and
+      // pushes it right back up, resurrecting the application we just deleted.
+      await fetch('/api/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+    } catch {
+      // Best-effort — no local dev server (or no local copy) to clean up.
+    }
   },
 
   async getSettings() {
