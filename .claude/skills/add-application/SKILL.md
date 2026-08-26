@@ -18,6 +18,8 @@ Produces a tailored resume and cover letter (markdown + PDF) in a new folder und
 
 2. **Get the posting.** Prefer pasted text over fetching. Only fetch a bare URL if no text was given.
 
+   **Check the source before going any further.** Some job aggregators/recruiters are commonly associated with job-listing scams. Currently flagged: **HireFeed** (hirefeed.io, hirefeed.com, or the name "HireFeed" anywhere in the URL or posting text) and **micro1** (micro1.ai, jobs.micro1.ai, or the name "micro1" anywhere in the URL or posting text). If the posting matches either, stop here — don't create a folder or write any files yet. Tell the user this source is flagged as commonly associated with job scams and ask whether they still want to proceed. Only continue past this point (fact extraction, folder creation, everything else) if they explicitly say yes.
+
 3. **Extract facts.** Company, exact role title, location, and 5–10 short keyword phrases (one to three words each — the dashboard highlights these verbatim, so keep them short).
 
 4. **Create the folder.** id = `<YYYY-MM-DD>-<company-slug>-<role-slug>` (today's date, lowercase/hyphenated slugs of company and role). Create `public/applications/<id>/`.

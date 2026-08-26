@@ -13,7 +13,7 @@ Fast triage path: saves a lightweight entry to the dashboard (job posting + fit 
 
 ## Steps
 
-1. **Get the posting.** Same as `add-application` step 2 — prefer pasted text, fall back to fetching a bare URL, ask for pasted text if that fetch fails or looks incomplete.
+1. **Get the posting.** Same as `add-application` step 2 — prefer pasted text, fall back to fetching a bare URL, ask for pasted text if that fetch fails or looks incomplete. This includes the same scam-source check: if the posting is from HireFeed or micro1 (URL or posting text names either), stop before creating anything and ask the user whether they still want to proceed — see `add-application` step 2 for the exact flagged-source list and wording.
 
 2. **Extract key facts.** Company name, exact role title, location (if listed), and 5–10 short keyword phrases (one to three words each) the posting emphasizes.
 
