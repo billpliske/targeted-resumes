@@ -2,6 +2,10 @@
 
 Notable changes to this app, listed by version. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.4.5
+
+- Fixed sync repeatedly failing to push a fixed set of applications ("The conditional request failed") once the cloud table grew past Amplify's default single-page list size — the leftover applications silently disappeared from every sync check, got misclassified as local-only, and every push attempt collided with the row that was already there. Sync now pages through the full list instead of just the first page. Also fixed sync failures being silently swallowed with no visible reason — they're now logged to the console.
+
 ## 1.4.4
 
 - Fixed deletions not sticking in cloud mode: deleting an application removed it from the cloud database but left its local file mirror in place, so the next "Sync now" saw an orphaned local copy and pushed it right back up, resurrecting the application. Deleting now also cleans up the local mirror.

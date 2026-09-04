@@ -22,6 +22,28 @@ async function getClient() {
   return client
 }
 
+// Application.list() only returns one page (Amplify Data's default limit)
+// — once the table grows past it, the rest silently vanish from the result
+// rather than erroring, which made sync think those rows were local-only
+// and try to re-create them, colliding with the row that was there all
+// along ("The conditional request failed"). Looping on nextToken until
+// there isn't one fixes that for every caller.
+async function listAllApplications(
+  c: ReturnType<typeof generateClient<Schema>>,
+): Promise<Schema['Application']['type'][]> {
+  const items: Schema['Application']['type'][] = []
+  let nextToken: string | null | undefined
+  do {
+    const { data, nextToken: next, errors } = await c.models.Application.list(
+      nextToken ? { nextToken } : {},
+    )
+    if (errors) throw new Error(errors.map((e) => e.message).join('; '))
+    items.push(...data)
+    nextToken = next
+  } while (nextToken)
+  return items
+}
+
 function applicationPath(applicationId: string, filename: string): StoragePath {
   return ({ identityId }) => `applications/${identityId}/${applicationId}/${filename}`
 }
@@ -106,7 +128,7 @@ async function diffLocalAndCloud(): Promise<{
     await getLocalMtimes(),
     await getLocalContentHashes(),
   ]
-  const { data } = await c.models.Application.list()
+  const data = await listAllApplications(c)
   const localIds = new Set(localApps.map((a) => a.id))
   const cloudById = new Map(data.map((r) => [r.applicationId, r]))
 
@@ -415,8 +437,7 @@ async function syncSharedFiles() {
 export const amplifyAdapter: StorageAdapter = {
   async listApplications() {
     const c = await getClient()
-    const { data, errors } = await c.models.Application.list()
-    if (errors) throw new Error(errors.map((e) => e.message).join('; '))
+    const data = await listAllApplications(c)
     return data.map(mapRecord).sort((a, b) => b.dateAdded.localeCompare(a.dateAdded))
   },
 
@@ -568,6 +589,7 @@ export const amplifyAdapter: StorageAdapter = {
         await syncOneApplication(app)
         pushed++
       } catch (err) {
+        console.error(`Sync push failed for ${app.id}:`, err)
         failed.push({ id: app.id, error: err instanceof Error ? err.message : 'Push failed' })
       }
     }
@@ -576,6 +598,7 @@ export const amplifyAdapter: StorageAdapter = {
         await pushApplicationUpdate(app)
         pushed++
       } catch (err) {
+        console.error(`Sync update failed for ${app.id}:`, err)
         failed.push({ id: app.id, error: err instanceof Error ? err.message : 'Update failed' })
       }
     }
@@ -584,6 +607,7 @@ export const amplifyAdapter: StorageAdapter = {
         await pullOneApplication(target.app, target.contentHash)
         pulled++
       } catch (err) {
+        console.error(`Sync pull failed for ${target.app.id}:`, err)
         failed.push({
           id: target.app.id,
           error: err instanceof Error ? err.message : 'Pull failed',

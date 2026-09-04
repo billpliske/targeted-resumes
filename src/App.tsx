@@ -107,6 +107,9 @@ function App() {
       if (result.pushed > 0) {
         storage.listApplications().then(setApplications)
       }
+      if (result.failed.length > 0) {
+        console.error('Sync failures:', result.failed)
+      }
       const failedNote =
         result.failed.length > 0
           ? ` — ${result.failed.length} failed (${result.failed.map((f) => f.id).join(', ')})`
