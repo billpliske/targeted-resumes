@@ -48,6 +48,10 @@ export interface Application {
   status: ApplicationStatus
   fitRating?: FitRating
   fitSummary?: string
+  // True when the posting is hybrid/on-site and its location is judged to be
+  // outside commuting range of Tempe, AZ — surfaced as a standing warning so
+  // it's not easy to miss and accidentally apply anyway.
+  outOfCommuteRange?: boolean
   tailored: boolean
   jobPostingFile: string
   resumeFile?: string

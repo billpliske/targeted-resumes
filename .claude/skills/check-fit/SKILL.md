@@ -49,7 +49,7 @@ Fast triage path: saves a lightweight entry to the dashboard (job posting + fit 
      "jobPostingFile": "job-posting.md"
    }
    ```
-   `status` still defaults to `"not_applied"` even though these are often postings the user already applied to once before — they update it themselves once they know this run's actual status.
+   `status` still defaults to `"not_applied"` even though these are often postings the user already applied to once before — they update it themselves once they know this run's actual status. If the location/commute gate in step 3 failed, add `"outOfCommuteRange": true` to this object — the dashboard renders a standing warning badge/banner off this field, so it's the actual mechanism that protects the user from missing the geographic disqualification later while browsing. Omit the field entirely (don't write `false`) when the gate passed or didn't apply.
 
 8. **Auto-promote only on a clear match; ask first otherwise.**
    - **If the location/commute gate in step 3 failed, never auto-promote** — stop at the screening-only entry regardless of `fitRating`, rebuild the manifest (step 9), and report the geographic disqualification to the user, asking whether they want the full resume/cover letter built anyway (e.g. they're open to relocating or the commute).

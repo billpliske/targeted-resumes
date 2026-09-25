@@ -2,6 +2,10 @@
 
 Notable changes to this app, listed by version. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.6.0
+
+- Applications flagged as outside commute range now show a standing red "Out of commute range" warning — a badge in the applications list and a banner at the top of the application's detail view — so it's hard to miss while browsing and accidentally apply anyway. Backed by a new `outOfCommuteRange` field on the Application model (Amplify backend schema change required for cloud-mode users).
+
 ## 1.5.0
 
 - The check-fit and add-application skills now gate on commute distance: a hybrid or on-site posting located more than ~25 miles from Tempe, AZ stops before any resume/cover letter gets built, and Claude notifies you instead so you can decide whether to proceed anyway. Fully remote postings skip this check.

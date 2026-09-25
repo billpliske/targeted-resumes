@@ -8,6 +8,7 @@ import {
 } from '../types'
 import StatusSelect from './StatusSelect'
 import FitBadge from './FitBadge'
+import CommuteWarningBadge from './CommuteWarningBadge'
 import Tooltip from './Tooltip'
 
 interface ApplicationListProps {
@@ -131,6 +132,7 @@ function ApplicationList({
               >
                 <span className="application-role-wrap">
                   <span className="application-role">{app.role}</span>
+                  {app.outOfCommuteRange && <CommuteWarningBadge />}
                   {app.fitRating && <FitBadge rating={app.fitRating} />}
                   {!app.tailored && (
                     <span className="screened-only-badge">Screened only</span>

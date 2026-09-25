@@ -26,7 +26,7 @@ Produces a tailored resume and cover letter (markdown + PDF) in a new folder und
 
    If it requires a commute, judge whether the posting's location is within roughly 25 miles of Tempe, AZ. Tempe, Phoenix, Scottsdale, Mesa, Chandler, Gilbert, Guadalupe, and Paradise Valley are comfortably inside; Glendale, Peoria, Surprise, Queen Creek, and Apache Junction are borderline — use your best judgment on actual driving distance and flag your uncertainty in the final report rather than guessing silently. If the location is outside that range, or no Phoenix-metro location is given at all for a role that clearly requires one, **the gate fails**.
 
-   If the gate fails: still do steps 5–6 (create the folder, save the posting) so there's a record, then skip straight to a screening-only `meta.json` (step 10 below, `tailored: false`) with a `fitSummary` that leads with the geographic disqualification ahead of anything about skills fit — e.g. "Outside commute range: hybrid role based in `<city>`, ~`<n>` miles from Tempe, AZ. No resume was built." Rebuild the manifest (step 11) and stop there. Report this to the user directly and ask whether they want the full resume/cover letter built anyway (they may be open to relocating or the commute) before doing any of that. Don't run steps 7–9 unless they say yes.
+   If the gate fails: still do steps 5–6 (create the folder, save the posting) so there's a record, then skip straight to a screening-only `meta.json` (step 10 below, `tailored: false`, `outOfCommuteRange: true`) with a `fitSummary` that leads with the geographic disqualification ahead of anything about skills fit — e.g. "Outside commute range: hybrid role based in `<city>`, ~`<n>` miles from Tempe, AZ. No resume was built." Rebuild the manifest (step 11) and stop there. Report this to the user directly and ask whether they want the full resume/cover letter built anyway (they may be open to relocating or the commute) before doing any of that. Don't run steps 7–9 unless they say yes. The `outOfCommuteRange` field is what the dashboard reads to render a standing warning badge/banner — it's the actual protection against missing this later while browsing, not just the report back now.
 
 5. **Create the folder.** id = `<YYYY-MM-DD>-<company-slug>-<role-slug>` (today's date, lowercase/hyphenated slugs of company and role). Create `public/applications/<id>/`.
 
@@ -68,7 +68,7 @@ Produces a tailored resume and cover letter (markdown + PDF) in a new folder und
       "interestFile": "interest.md"
     }
     ```
-    If the location/commute gate failed and the user hasn't said to proceed, write the lightweight version instead — `tailored: false`, no `resumeFile`/`resumePdf`/`coverLetterFile`/`coverLetterPdf`/`interestFile` fields, `fitRating` omitted or left as a genuine skills-only read if you already have one — same shape as a `check-fit` screening entry.
+    If the location/commute gate failed and the user hasn't said to proceed, write the lightweight version instead — `tailored: false`, `outOfCommuteRange: true`, no `resumeFile`/`resumePdf`/`coverLetterFile`/`coverLetterPdf`/`interestFile` fields, `fitRating` omitted or left as a genuine skills-only read if you already have one — same shape as a `check-fit` screening entry.
     `status` always starts `"not_applied"` — the user updates it themselves as things move.
 
 11. **Rebuild the manifest.** `npm run manifest` via Bash.

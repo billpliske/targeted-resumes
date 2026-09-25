@@ -6,6 +6,7 @@ import MarkdownView from './MarkdownView'
 import KeywordCompare from './KeywordCompare'
 import StatusSelect from './StatusSelect'
 import FitBadge from './FitBadge'
+import CommuteWarningBadge from './CommuteWarningBadge'
 import Tooltip from './Tooltip'
 
 interface ApplicationDetailProps {
@@ -167,6 +168,16 @@ function ApplicationDetail({
           {application.company}
           {application.location ? ` — ${application.location}` : ''}
         </p>
+        {application.outOfCommuteRange && (
+          <div className="commute-warning-banner">
+            <CommuteWarningBadge />
+            <p>
+              This is hybrid/on-site and outside commuting range of Tempe,
+              AZ. Don&apos;t apply unless you&apos;re open to relocating or
+              the commute.
+            </p>
+          </div>
+        )}
         {application.jobUrl && (
           <a href={application.jobUrl} target="_blank" rel="noreferrer">
             View original job posting

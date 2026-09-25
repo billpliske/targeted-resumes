@@ -20,6 +20,7 @@ const schema = a.schema({
       status: a.enum(['not_applied', 'applied', 'interviewing', 'offer', 'rejected', 'filled']),
       fitRating: a.enum(['strong', 'good', 'partial', 'stretch']),
       fitSummary: a.string(),
+      outOfCommuteRange: a.boolean(),
       tailored: a.boolean().required(),
       jobPostingFile: a.string().required(),
       resumeFile: a.string(),
