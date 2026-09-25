@@ -2,6 +2,10 @@
 
 Notable changes to this app, listed by version. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.5.0
+
+- The check-fit and add-application skills now gate on commute distance: a hybrid or on-site posting located more than ~25 miles from Tempe, AZ stops before any resume/cover letter gets built, and Claude notifies you instead so you can decide whether to proceed anyway. Fully remote postings skip this check.
+
 ## 1.4.5
 
 - Fixed sync repeatedly failing to push a fixed set of applications ("The conditional request failed") once the cloud table grew past Amplify's default single-page list size — the leftover applications silently disappeared from every sync check, got misclassified as local-only, and every push attempt collided with the row that was already there. Sync now pages through the full list instead of just the first page. Also fixed sync failures being silently swallowed with no visible reason — they're now logged to the console.

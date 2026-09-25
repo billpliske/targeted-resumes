@@ -22,52 +22,59 @@ Produces a tailored resume and cover letter (markdown + PDF) in a new folder und
 
 3. **Extract facts.** Company, exact role title, location, and 5–10 short keyword phrases (one to three words each — the dashboard highlights these verbatim, so keep them short).
 
-4. **Create the folder.** id = `<YYYY-MM-DD>-<company-slug>-<role-slug>` (today's date, lowercase/hyphenated slugs of company and role). Create `public/applications/<id>/`.
+4. **Check the location/commute gate.** Bill is based in the Phoenix, AZ metro area. Determine whether the posting is fully remote or expects any hybrid/on-site presence — look for explicit language ("remote," "fully remote," "100% remote," "hybrid," "on-site," "in-office," "campus-based/home-based," "N days a week in office"). Treat it as fully remote only when the posting says so explicitly; treat anything hybrid, on-site, or ambiguous-but-tied-to-an-office as requiring a commute. **If it's genuinely fully remote, skip this gate entirely** — location doesn't matter.
 
-5. **Save the posting.** Write `public/applications/<id>/job-posting.md` — source URL at top if given, then the cleaned posting text. If the posting lists a salary/compensation figure, add a `Compensation:` line right under the location/remote-status line near the top, in addition to leaving it wherever it appears further down (e.g. alongside benefits) — don't move it, just also surface it up top so it's visible without scrolling.
+   If it requires a commute, judge whether the posting's location is within roughly 25 miles of Tempe, AZ. Tempe, Phoenix, Scottsdale, Mesa, Chandler, Gilbert, Guadalupe, and Paradise Valley are comfortably inside; Glendale, Peoria, Surprise, Queen Creek, and Apache Junction are borderline — use your best judgment on actual driving distance and flag your uncertainty in the final report rather than guessing silently. If the location is outside that range, or no Phoenix-metro location is given at all for a role that clearly requires one, **the gate fails**.
 
-6. **Tailor resume + cover letter + interest paragraph in ONE `writer` subagent call.** Give it `public/original-resume.md`, the extracted keywords, and (if present) `public/cover-letter-template.md` as a voice/format reference — and ask for all three files in the same invocation (don't call the subagent multiple times — it's the same source material and instructions either way):
+   If the gate fails: still do steps 5–6 (create the folder, save the posting) so there's a record, then skip straight to a screening-only `meta.json` (step 10 below, `tailored: false`) with a `fitSummary` that leads with the geographic disqualification ahead of anything about skills fit — e.g. "Outside commute range: hybrid role based in `<city>`, ~`<n>` miles from Tempe, AZ. No resume was built." Rebuild the manifest (step 11) and stop there. Report this to the user directly and ask whether they want the full resume/cover letter built anyway (they may be open to relocating or the commute) before doing any of that. Don't run steps 7–9 unless they say yes.
+
+5. **Create the folder.** id = `<YYYY-MM-DD>-<company-slug>-<role-slug>` (today's date, lowercase/hyphenated slugs of company and role). Create `public/applications/<id>/`.
+
+6. **Save the posting.** Write `public/applications/<id>/job-posting.md` — source URL at top if given, then the cleaned posting text. If the posting lists a salary/compensation figure, add a `Compensation:` line right under the location/remote-status line near the top, in addition to leaving it wherever it appears further down (e.g. alongside benefits) — don't move it, just also surface it up top so it's visible without scrolling.
+
+7. **Tailor resume + cover letter + interest paragraph in ONE `writer` subagent call.** (Skip this step if the location/commute gate in step 4 failed and the user hasn't told you to proceed anyway.) Give it `public/original-resume.md`, the extracted keywords, and (if present) `public/cover-letter-template.md` as a voice/format reference — and ask for all three files in the same invocation (don't call the subagent multiple times — it's the same source material and instructions either way):
    - **`resume.md`**: tighten the intro into a first-person professional summary starting "I'm a..." (a deliberate exception to the writer's usual no-first-person rule — bullets below the summary stay third-person). Keep it broken into 2–3 short paragraphs, matching the original resume's paragraph structure — don't collapse it into one dense block; a blank line between paragraphs is a hard markdown break here, same as elsewhere in the file. Reword/reweight bullets toward the posting's terms without inventing skills, employers, dates, or accomplishments. Critically, when a keyword from step 3 genuinely applies, use that **exact phrase** (grammatically adapted — "prototyping" not just "prototypes/prototyped") somewhere in the resume rather than a paraphrase — the dashboard's keyword-targeting view does literal substring matching, not concept matching, so "design-system ownership" or "aligning cross-functional teams" won't register as matches for "design systems" or "cross-functional collaboration" even though the substance is the same. Only skip a keyword's literal phrase if the underlying claim genuinely isn't true — don't force language onto experience that doesn't support it. Never write gap notes like `[NEEDS INPUT: ...]` into the file body itself — it gets rendered to the dashboard and printed to PDF; put any flagged gaps in your final report back to the user instead. Preserve the full job history, dates, and structure exactly.
    - **`cover-letter.md`**: 3–4 paragraphs, "Dear `<Company>` Hiring Team," citing two or three concrete accomplishments from the tailored resume, no fabrication, AP style. Close with "Sincerely,  " (two trailing spaces — a markdown hard break so it doesn't collapse onto one line) then the user's first name only, taken from `settings.name` (e.g. "Bill" from "Bill Pliske") on the next line.
    - **`interest.md`**: one paragraph, first person, meant to be copy-pasted verbatim as the answer to an application form's "Why are you interested in working for our company?" question — so it must read as a self-contained, submittable answer, not as commentary about the job or the tailoring process. Build it as a genuine combination of what the job/company is actually about (its mission, product, or the specific problem this role solves — pull this from the posting, not generic flattery) and how that connects to the user's real experience and interests. Bill has told Claude directly that he's especially drawn to roles that emphasize design ownership and to building/prototyping things from scratch — when a posting genuinely touches either theme, lean into it here (and lightly in the resume summary, where genuinely true), without forcing it onto postings where it doesn't fit. No fabrication, no keyword-stuffing for the dashboard's keyword view (this tab isn't part of that feature). **Tone is the whole point here — keep it simple, casual, and matter-of-fact, like the user talking, not a corporate document.** Short plain sentences over long compound ones. Skip resume/cover-letter conventions like AP style and formal phrasing. Avoid stacking multiple technical or business buzzwords in one sentence (e.g. don't chain "end-to-end," "core infrastructure," "cross-functional," "genuinely energized," several named technologies in a row) — one or two concrete, plain-language details beat a dense list. If it reads like it could have been written by a corporate copywriter or sounds AI-generated, simplify it further.
 
-7. **Assess the fit.** Write this directly — no subagent needed: `fitRating` (`strong`/`good`/`partial`/`stretch`, honest rather than encouraging — a `stretch` rating that saves the user from reapplying to a bad fit is more useful than an inflated one) and a 2–3 sentence `fitSummary` naming genuine overlaps and genuine gaps, specific to this posting.
+8. **Assess the fit.** Write this directly — no subagent needed: `fitRating` (`strong`/`good`/`partial`/`stretch`, honest rather than encouraging — a `stretch` rating that saves the user from reapplying to a bad fit is more useful than an inflated one) and a 2–3 sentence `fitSummary` naming genuine overlaps and genuine gaps, specific to this posting.
 
-8. **Generate PDFs**, named from `settings.resumeFilename` and `settings.coverLetterFilename` (e.g. "Bill Pliske Resume.pdf") — that's the literal filename the user uploads elsewhere, so it needs their real name, not a generic one. Markdown sources keep their generic names.
+9. **Generate PDFs**, named from `settings.resumeFilename` and `settings.coverLetterFilename` (e.g. "Bill Pliske Resume.pdf") — that's the literal filename the user uploads elsewhere, so it needs their real name, not a generic one. Markdown sources keep their generic names.
    ```
    node scripts/generate-pdf.mjs "public/applications/<id>/resume.md" "public/applications/<id>/<settings.resumeFilename>"
    node scripts/generate-pdf.mjs "public/applications/<id>/cover-letter.md" "public/applications/<id>/<settings.coverLetterFilename>"
    ```
 
-9. **Write `meta.json`** (shape matches `Application` in `src/types.ts`):
-   ```json
-   {
-     "id": "<id>",
-     "company": "<company>",
-     "role": "<role>",
-     "dateAdded": "<YYYY-MM-DDTHH:MM:SS — run `date +%Y-%m-%dT%H:%M:%S` for the real current timestamp; the list sorts by this field, so a placeholder like midnight will sort it out of order against entries added earlier the same day>",
-     "jobUrl": "<url or omit if pasted>",
-     "jobPostingSource": "url | pasted",
-     "location": "<location, if known>",
-     "status": "not_applied",
-     "fitRating": "strong | good | partial | stretch",
-     "fitSummary": "2-3 sentence honest assessment from step 7",
-     "tailored": true,
-     "keywords": ["..."],
-     "jobPostingFile": "job-posting.md",
-     "resumeFile": "resume.md",
-     "resumePdf": "<settings.resumeFilename>",
-     "coverLetterFile": "cover-letter.md",
-     "coverLetterPdf": "<settings.coverLetterFilename>",
-     "interestFile": "interest.md"
-   }
-   ```
-   `status` always starts `"not_applied"` — the user updates it themselves as things move.
+10. **Write `meta.json`** (shape matches `Application` in `src/types.ts`):
+    ```json
+    {
+      "id": "<id>",
+      "company": "<company>",
+      "role": "<role>",
+      "dateAdded": "<YYYY-MM-DDTHH:MM:SS — run `date +%Y-%m-%dT%H:%M:%S` for the real current timestamp; the list sorts by this field, so a placeholder like midnight will sort it out of order against entries added earlier the same day>",
+      "jobUrl": "<url or omit if pasted>",
+      "jobPostingSource": "url | pasted",
+      "location": "<location, if known>",
+      "status": "not_applied",
+      "fitRating": "strong | good | partial | stretch",
+      "fitSummary": "2-3 sentence honest assessment from step 8 (or the geographic-disqualification note from step 4 if the gate failed)",
+      "tailored": true,
+      "keywords": ["..."],
+      "jobPostingFile": "job-posting.md",
+      "resumeFile": "resume.md",
+      "resumePdf": "<settings.resumeFilename>",
+      "coverLetterFile": "cover-letter.md",
+      "coverLetterPdf": "<settings.coverLetterFilename>",
+      "interestFile": "interest.md"
+    }
+    ```
+    If the location/commute gate failed and the user hasn't said to proceed, write the lightweight version instead — `tailored: false`, no `resumeFile`/`resumePdf`/`coverLetterFile`/`coverLetterPdf`/`interestFile` fields, `fitRating` omitted or left as a genuine skills-only read if you already have one — same shape as a `check-fit` screening entry.
+    `status` always starts `"not_applied"` — the user updates it themselves as things move.
 
-10. **Rebuild the manifest.** `npm run manifest` via Bash.
+11. **Rebuild the manifest.** `npm run manifest` via Bash.
 
-11. **Report back briefly.** Folder path, fit rating, and a reminder to review before uploading anywhere — nothing here should go out unreviewed.
+12. **Report back briefly.** Folder path, fit rating, and a reminder to review before uploading anywhere — nothing here should go out unreviewed. If the location gate stopped things, lead with that instead.
 
 ## Promoting a screened application to a full one
 
-`check-fit` creates lightweight entries (`tailored: false` — just `job-posting.md` and `meta.json`). To promote one, don't create a new folder — reuse the existing id, run steps 1 and 6–10 above against it, and update `meta.json` in place (add the resume/cover-letter/interest fields, flip `tailored` to `true`, refresh `fitRating`/`fitSummary` if the fuller pass changes the read). Skip steps 2–5.
+`check-fit` creates lightweight entries (`tailored: false` — just `job-posting.md` and `meta.json`). To promote one, don't create a new folder — reuse the existing id, run steps 1, 4, and 7–11 above against it (step 4's location/commute gate applies here too — re-check it even if the screening entry already looked at it, since gate logic may have changed since that entry was created), and update `meta.json` in place (add the resume/cover-letter/interest fields, flip `tailored` to `true`, refresh `fitRating`/`fitSummary` if the fuller pass changes the read). Skip steps 2–3 and 5–6.
